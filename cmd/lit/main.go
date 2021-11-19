@@ -13,16 +13,22 @@ import (
 )
 
 var (
-	scopusKey = os.Getenv("SCOPUS_API_KEY")
+	scopusKey    = os.Getenv("SCOPUS_API_KEY")
+	defaultQuery = os.Getenv("QUERY")
 )
 
 var (
-	queryString = flag.String("q", "", "Query string")
+	queryString = flag.String("q", defaultQuery, "Query string")
 	queryPath   = flag.String("Q", "", "Query file path")
 )
 
 func main() {
 	flag.Parse()
+
+	query := *queryString
+	if query == "" {
+		log.Fatalf("no query string provided")
+	}
 
 	client := scopus.NewClient(scopusKey)
 
