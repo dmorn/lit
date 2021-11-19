@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
-	"log"
 	"os"
 
 	"github.com/jecoz/lit"
+	"github.com/jecoz/lit/log"
 	"github.com/jecoz/lit/scopus"
 )
 
@@ -19,7 +17,6 @@ var (
 
 var (
 	queryString = flag.String("q", defaultQuery, "Query string")
-	queryPath   = flag.String("Q", "", "Query file path")
 )
 
 func main() {
@@ -32,25 +29,24 @@ func main() {
 
 	client := scopus.NewClient(scopusKey)
 
-	pubs := []lit.Publication{}
 	pubChan := lit.SearchLiterature(context.Background(), client, lit.Request{
 		Query: *queryString,
 	})
+
+	received := 0
 	for pub := range pubChan.Chan {
-		pubs = append(pubs, pub)
+		received++
+		log.Event("main", log.Measurement{
+			"received_count": received,
+			"left_count":     pubChan.Total - received,
+			"total_count":    pubChan.Total,
+		}, nil)
+
+		if err := pub.WriteTo(os.Stdout); err != nil {
+			log.Fatale(err)
+		}
 	}
 	if err := pubChan.Err; err != nil {
-		log.Fatal(err)
+		log.Fatale(err)
 	}
-
-	p, err := json.Marshal(pubs)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, p, "", "\t"); err != nil {
-		log.Fatal(err)
-	}
-	buf.WriteTo(os.Stdout)
 }

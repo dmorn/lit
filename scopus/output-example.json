@@ -1,0 +1,1014 @@
+{
+  "search-results": {
+    "opensearch:totalResults": "165261",
+    "opensearch:startIndex": "0",
+    "opensearch:itemsPerPage": "15",
+    "opensearch:Query": {
+      "@role": "request",
+      "@searchTerms": "fpga",
+      "@startPage": "0"
+    },
+    "link": [
+      {
+        "@_fa": "true",
+        "@ref": "self",
+        "@href": "https://api.elsevier.com/content/search/scopus?start=0&count=15&query=fpga",
+        "@type": "application/json"
+      },
+      {
+        "@_fa": "true",
+        "@ref": "first",
+        "@href": "https://api.elsevier.com/content/search/scopus?start=0&count=15&query=fpga",
+        "@type": "application/json"
+      },
+      {
+        "@_fa": "true",
+        "@ref": "next",
+        "@href": "https://api.elsevier.com/content/search/scopus?start=15&count=15&query=fpga",
+        "@type": "application/json"
+      },
+      {
+        "@_fa": "true",
+        "@ref": "last",
+        "@href": "https://api.elsevier.com/content/search/scopus?start=4985&count=15&query=fpga",
+        "@type": "application/json"
+      }
+    ],
+    "entry": [
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85116667568"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85116667568?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85116667568&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85116667568&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85116667568",
+        "dc:identifier": "SCOPUS_ID:85116667568",
+        "eid": "2-s2.0-85116667568",
+        "dc:title": "Deep Neural Network based Enhancement for Image and Video Streaming Systems: A Survey and Future Directions",
+        "dc:creator": "Lee R.",
+        "prism:publicationName": "ACM Computing Surveys",
+        "prism:issn": "03600300",
+        "prism:eIssn": "15577341",
+        "prism:volume": "54",
+        "prism:issueIdentifier": "8",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-11-01",
+        "prism:coverDisplayDate": "November 2022",
+        "prism:doi": "10.1145/3469094",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "University of Cambridge",
+            "affiliation-city": "Cambridge",
+            "affiliation-country": "United Kingdom"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "re",
+        "subtypeDescription": "Review",
+        "article-number": "169",
+        "source-id": "23038",
+        "openaccess": "1",
+        "openaccessFlag": true,
+        "freetoread": {
+          "value": [
+            {
+              "$": "all"
+            },
+            {
+              "$": "publisherfree2read"
+            },
+            {
+              "$": "repository"
+            },
+            {
+              "$": "repositoryam"
+            }
+          ]
+        },
+        "freetoreadLabel": {
+          "value": [
+            {
+              "$": "All Open Access"
+            },
+            {
+              "$": "Bronze"
+            },
+            {
+              "$": "Green"
+            }
+          ]
+        }
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85116606870"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85116606870?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85116606870&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85116606870&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85116606870",
+        "dc:identifier": "SCOPUS_ID:85116606870",
+        "eid": "2-s2.0-85116606870",
+        "dc:title": "Machine Learning at the Network Edge: A Survey",
+        "dc:creator": "Sarwar Murshed M.G.",
+        "prism:publicationName": "ACM Computing Surveys",
+        "prism:issn": "03600300",
+        "prism:eIssn": "15577341",
+        "prism:volume": "54",
+        "prism:issueIdentifier": "8",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-11-01",
+        "prism:coverDisplayDate": "November 2022",
+        "prism:doi": "10.1145/3469029",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Clarkson University",
+            "affiliation-city": "Potsdam",
+            "affiliation-country": "United States"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "re",
+        "subtypeDescription": "Review",
+        "article-number": "170",
+        "source-id": "23038",
+        "openaccess": "0",
+        "openaccessFlag": false,
+        "freetoread": {
+          "value": [
+            {
+              "$": "all"
+            },
+            {
+              "$": "repository"
+            },
+            {
+              "$": "repositoryam"
+            }
+          ]
+        },
+        "freetoreadLabel": {
+          "value": [
+            {
+              "$": "All Open Access"
+            },
+            {
+              "$": "Green"
+            }
+          ]
+        }
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85111598006"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85111598006?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85111598006&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85111598006&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85111598006",
+        "dc:identifier": "SCOPUS_ID:85111598006",
+        "eid": "2-s2.0-85111598006",
+        "dc:title": "Real-time high definition license plate localization and recognition accelerator for IoT endpoint system on chip",
+        "dc:creator": "Huang S.",
+        "prism:publicationName": "Journal of Applied Science and Engineering (Taiwan)",
+        "prism:issn": "27089967",
+        "prism:eIssn": "27089975",
+        "prism:volume": "25",
+        "prism:issueIdentifier": "1",
+        "prism:pageRange": "1-11",
+        "prism:coverDate": "2022-07-05",
+        "prism:coverDisplayDate": "5 July 2022",
+        "prism:doi": "10.6180/jase.202202_25(1).0001",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Fuzhou University",
+            "affiliation-city": "Fuzhou",
+            "affiliation-country": "China"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "21101034114",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118562497"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118562497?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85118562497&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85118562497&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85118562497",
+        "dc:identifier": "SCOPUS_ID:85118562497",
+        "eid": "2-s2.0-85118562497",
+        "dc:title": "Cooperative Scheduling Schemes for Explainable DNN Acceleration in Satellite Image Analysis and Retraining",
+        "dc:creator": "Kim W.J.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "7",
+        "prism:pageRange": "1605-1618",
+        "prism:coverDate": "2022-07-01",
+        "prism:coverDisplayDate": "1 July 2022",
+        "prism:doi": "10.1109/TPDS.2021.3122454",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Korea Advanced Institute of Science and Technology",
+            "affiliation-city": "Daejeon",
+            "affiliation-country": "South Korea"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "1",
+        "openaccessFlag": true,
+        "freetoread": {
+          "value": [
+            {
+              "$": "all"
+            },
+            {
+              "$": "publisherhybridgold"
+            }
+          ]
+        },
+        "freetoreadLabel": {
+          "value": [
+            {
+              "$": "All Open Access"
+            },
+            {
+              "$": "Hybrid Gold"
+            }
+          ]
+        }
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118302928"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118302928?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85118302928&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85118302928&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85118302928",
+        "dc:identifier": "SCOPUS_ID:85118302928",
+        "eid": "2-s2.0-85118302928",
+        "dc:title": "Blockchain technology in the food supply chain: Empirical analysis",
+        "dc:creator": "David A.",
+        "prism:publicationName": "International Journal of Information Systems and Supply Chain Management",
+        "prism:issn": "19355726",
+        "prism:eIssn": "19355734",
+        "prism:volume": "15",
+        "prism:issueIdentifier": "3",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-07-01",
+        "prism:coverDisplayDate": "1 July 2022",
+        "prism:doi": "10.4018/IJISSCM.290014",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Jain University",
+            "affiliation-city": "Bangalore",
+            "affiliation-country": "India"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "21100198470",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85117581408"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85117581408?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85117581408&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85117581408&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85117581408",
+        "dc:identifier": "SCOPUS_ID:85117581408",
+        "eid": "2-s2.0-85117581408",
+        "dc:title": "Accelerating the cryo-EM structure determination in RELION on GPU cluster",
+        "dc:creator": "You X.",
+        "prism:publicationName": "Frontiers of Computer Science",
+        "prism:issn": "20952228",
+        "prism:eIssn": "20952236",
+        "prism:volume": "16",
+        "prism:issueIdentifier": "3",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-06-01",
+        "prism:coverDisplayDate": "June 2022",
+        "prism:doi": "10.1007/s11704-020-0169-8",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Beihang University",
+            "affiliation-city": "Beijing",
+            "affiliation-country": "China"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "article-number": "163102",
+        "source-id": "21100200426",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85113852897"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85113852897?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85113852897&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85113852897&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85113852897",
+        "dc:identifier": "SCOPUS_ID:85113852897",
+        "eid": "2-s2.0-85113852897",
+        "dc:title": "Mapping-Aware Kernel Partitioning Method for CGRAs Assisted by Deep Learning",
+        "dc:creator": "Kojima T.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "5",
+        "prism:pageRange": "1213-1230",
+        "prism:coverDate": "2022-05-01",
+        "prism:coverDisplayDate": "1 May 2022",
+        "prism:doi": "10.1109/TPDS.2021.3107746",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Keio University",
+            "affiliation-city": "Tokyo",
+            "affiliation-country": "Japan"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "Riken",
+            "affiliation-city": "Wako",
+            "affiliation-country": "Japan"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112662872"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112662872?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85112662872&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85112662872&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85112662872",
+        "dc:identifier": "SCOPUS_ID:85112662872",
+        "eid": "2-s2.0-85112662872",
+        "dc:title": "Exploring the Galaxyfly Family to Build Flexible-Scale Interconnection Networks",
+        "dc:creator": "Lei F.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "5",
+        "prism:pageRange": "1054-1068",
+        "prism:coverDate": "2022-05-01",
+        "prism:coverDisplayDate": "1 May 2022",
+        "prism:doi": "10.1109/TPDS.2021.3100783",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "National University of Defense Technology",
+            "affiliation-city": "Changsha",
+            "affiliation-country": "China"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112591757"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112591757?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85112591757&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85112591757&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85112591757",
+        "dc:identifier": "SCOPUS_ID:85112591757",
+        "eid": "2-s2.0-85112591757",
+        "dc:title": "A Low-Power Transprecision Floating-Point Cluster for Efficient Near-Sensor Data Analytics",
+        "dc:creator": "Montagna F.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "5",
+        "prism:pageRange": "1038-1053",
+        "prism:coverDate": "2022-05-01",
+        "prism:coverDisplayDate": "1 May 2022",
+        "prism:doi": "10.1109/TPDS.2021.3101764",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Alma Mater Studiorum Università di Bologna",
+            "affiliation-city": "Bologna",
+            "affiliation-country": "Italy"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85110900002"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85110900002?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85110900002&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85110900002&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85110900002",
+        "dc:identifier": "SCOPUS_ID:85110900002",
+        "eid": "2-s2.0-85110900002",
+        "dc:title": "Measurement method and application of a deep learning digital economy scale based on a big data cloud platform",
+        "dc:creator": "Zhao Y.",
+        "prism:publicationName": "Journal of Organizational and End User Computing",
+        "prism:issn": "15462234",
+        "prism:eIssn": "15465012",
+        "prism:volume": "34",
+        "prism:issueIdentifier": "3",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-05-01",
+        "prism:coverDisplayDate": "May-June 2022",
+        "prism:doi": "10.4018/JOEUC.20220501.oa1",
+        "citedby-count": "1",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Northeast Normal University",
+            "affiliation-city": "Changchun",
+            "affiliation-country": "China"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "Changchun Finance College",
+            "affiliation-city": "Changchun",
+            "affiliation-country": "China"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "15492",
+        "openaccess": "1",
+        "openaccessFlag": true,
+        "freetoread": {
+          "value": [
+            {
+              "$": "all"
+            },
+            {
+              "$": "publisherfree2read"
+            }
+          ]
+        },
+        "freetoreadLabel": {
+          "value": [
+            {
+              "$": "All Open Access"
+            },
+            {
+              "$": "Bronze"
+            }
+          ]
+        }
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85114738891"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85114738891?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85114738891&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85114738891&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85114738891",
+        "dc:identifier": "SCOPUS_ID:85114738891",
+        "eid": "2-s2.0-85114738891",
+        "dc:title": "EXA2PRO: A Framework for High Development Productivity on Heterogeneous Computing Systems",
+        "dc:creator": "Papadopoulos L.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "4",
+        "prism:pageRange": "792-804",
+        "prism:coverDate": "2022-04-01",
+        "prism:coverDisplayDate": "1 April 2022",
+        "prism:doi": "10.1109/TPDS.2021.3104257",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "National Technical University of Athens",
+            "affiliation-city": "Athens",
+            "affiliation-country": "Greece"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "1",
+        "openaccessFlag": true,
+        "freetoread": {
+          "value": [
+            {
+              "$": "all"
+            },
+            {
+              "$": "repository"
+            },
+            {
+              "$": "repositoryam"
+            }
+          ]
+        },
+        "freetoreadLabel": {
+          "value": [
+            {
+              "$": "All Open Access"
+            },
+            {
+              "$": "Green"
+            }
+          ]
+        }
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112440294"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85112440294?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85112440294&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85112440294&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85112440294",
+        "dc:identifier": "SCOPUS_ID:85112440294",
+        "eid": "2-s2.0-85112440294",
+        "dc:title": "Accelerating Restarted GMRES with Mixed Precision Arithmetic",
+        "dc:creator": "Lindquist N.",
+        "prism:publicationName": "IEEE Transactions on Parallel and Distributed Systems",
+        "prism:issn": "10459219",
+        "prism:eIssn": "15582183",
+        "prism:volume": "33",
+        "prism:issueIdentifier": "4",
+        "prism:pageRange": "1027-1037",
+        "prism:coverDate": "2022-04-01",
+        "prism:coverDisplayDate": "1 April 2022",
+        "prism:doi": "10.1109/TPDS.2021.3090757",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "The University of Tennessee, Knoxville",
+            "affiliation-city": "Knoxville",
+            "affiliation-country": "United States"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "26098",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85106248588"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85106248588?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85106248588&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85106248588&origin=inward"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85106248588",
+        "dc:identifier": "SCOPUS_ID:85106248588",
+        "eid": "2-s2.0-85106248588",
+        "dc:title": "Mobile multimedia computing in cyber-physical surveillance services through UAV-borne Video-SAR: A taxonomy of intelligent data processing for IoMT-enabled radar sensor networks",
+        "dc:creator": "Khosravi M.R.",
+        "prism:publicationName": "Tsinghua Science and Technology",
+        "prism:issn": "10070214",
+        "prism:eIssn": "18787606",
+        "prism:volume": "27",
+        "prism:issueIdentifier": "2",
+        "prism:pageRange": "288-302",
+        "prism:coverDate": "2022-04-01",
+        "prism:coverDisplayDate": "April 2022",
+        "prism:doi": "10.26599/TST.2021.9010013",
+        "citedby-count": "2",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Shiraz University of Technology",
+            "affiliation-city": "Shiraz",
+            "affiliation-country": "Iran"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "25522",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85117113756"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85117113756?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85117113756&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85117113756&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "full-text",
+            "@href": "https://api.elsevier.com/content/article/eid/1-s2.0-S0308814621022524"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85117113756",
+        "dc:identifier": "SCOPUS_ID:85117113756",
+        "eid": "2-s2.0-85117113756",
+        "dc:title": "Integration of textural and spectral features of Raman hyperspectral imaging for quantitative determination of a single maize kernel mildew coupled with chemometrics",
+        "dc:creator": "Long Y.",
+        "prism:publicationName": "Food Chemistry",
+        "prism:issn": "03088146",
+        "prism:eIssn": "18737072",
+        "prism:volume": "372",
+        "prism:pageRange": null,
+        "prism:coverDate": "2022-03-15",
+        "prism:coverDisplayDate": "15 March 2022",
+        "prism:doi": "10.1016/j.foodchem.2021.131246",
+        "pii": "S0308814621022524",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Beijing Academy of Agriculture and Forestry Sciences",
+            "affiliation-city": "Beijing",
+            "affiliation-country": "China"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "Ministry of Agriculture of the People's Republic of China",
+            "affiliation-city": "Beijing",
+            "affiliation-country": "China"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "National Climate Center Beijing",
+            "affiliation-city": "Beijing",
+            "affiliation-country": "China"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "Beijing Research Center of Intelligent Equipment for Agriculture",
+            "affiliation-city": "Beijing",
+            "affiliation-country": "China"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "article-number": "131246",
+        "source-id": "24039",
+        "openaccess": "0",
+        "openaccessFlag": false
+      },
+      {
+        "@_fa": "true",
+        "link": [
+          {
+            "@_fa": "true",
+            "@ref": "self",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118874311"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "author-affiliation",
+            "@href": "https://api.elsevier.com/content/abstract/scopus_id/85118874311?field=author,affiliation"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus",
+            "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85118874311&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "scopus-citedby",
+            "@href": "https://www.scopus.com/inward/citedby.uri?partnerID=HzOxMe3b&scp=85118874311&origin=inward"
+          },
+          {
+            "@_fa": "true",
+            "@ref": "full-text",
+            "@href": "https://api.elsevier.com/content/article/eid/1-s2.0-S0167739X21003836"
+          }
+        ],
+        "prism:url": "https://api.elsevier.com/content/abstract/scopus_id/85118874311",
+        "dc:identifier": "SCOPUS_ID:85118874311",
+        "eid": "2-s2.0-85118874311",
+        "dc:title": "Reconfigurable content-addressable memory (CAM) on FPGAs: A tutorial and survey",
+        "dc:creator": "Irfan M.",
+        "prism:publicationName": "Future Generation Computer Systems",
+        "prism:issn": "0167739X",
+        "prism:volume": "128",
+        "prism:pageRange": "451-465",
+        "prism:coverDate": "2022-03-01",
+        "prism:coverDisplayDate": "March 2022",
+        "prism:doi": "10.1016/j.future.2021.09.037",
+        "pii": "S0167739X21003836",
+        "citedby-count": "0",
+        "affiliation": [
+          {
+            "@_fa": "true",
+            "affilname": "Ghulam Ishaq Khan Institute of Engineering Sciences and Technology",
+            "affiliation-city": "Topi",
+            "affiliation-country": "Pakistan"
+          },
+          {
+            "@_fa": "true",
+            "affilname": "City University of Hong Kong",
+            "affiliation-city": "Kowloon",
+            "affiliation-country": "Hong Kong"
+          }
+        ],
+        "prism:aggregationType": "Journal",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "source-id": "12264",
+        "openaccess": "0",
+        "openaccessFlag": false
+      }
+    ]
+  }
+}
