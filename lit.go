@@ -16,16 +16,19 @@ const (
 
 const (
 	TagTitle = "#pub:title[%d]:%s"
+	TagEid   = "#pub:eid[%d]:%s"
 	TagLink  = "#pub:link[%d]:%s[%d]:%s"
 )
 
 type Publication struct {
 	Title string
+	Eid   string
 	Links map[string]string
 }
 
 func (p Publication) WriteTo(w io.Writer) error {
 	fmt.Fprintf(w, TagTitle+"\n", len(p.Title), p.Title)
+	fmt.Fprintf(w, TagEid+"\n", len(p.Eid), p.Eid)
 	for k, v := range p.Links {
 		fmt.Fprintf(w, TagLink+"\n", len(k), k, len(v), v)
 	}
@@ -108,7 +111,7 @@ func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Pu
 	return onceErr
 }
 
-func SearchLiterature(ctx context.Context, lib Library, req Request) *PublicationChan {
+func GetLiterature(ctx context.Context, lib Library, req Request) *PublicationChan {
 	pubChan := make(chan Publication)
 	pc := &PublicationChan{
 		Chan: pubChan,
@@ -142,4 +145,8 @@ func SearchLiterature(ctx context.Context, lib Library, req Request) *Publicatio
 	}()
 
 	return pc
+}
+
+func GetMaxLiterature(ctx context.Context, lib Library, req Request) (int, error) {
+	return lib.GetMaxLiterature(ctx, req)
 }

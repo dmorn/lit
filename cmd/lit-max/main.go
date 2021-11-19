@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/jecoz/lit"
@@ -29,24 +30,12 @@ func main() {
 
 	client := scopus.NewClient(scopusKey)
 
-	pubChan := lit.SearchLiterature(context.Background(), client, lit.Request{
+	max, err := lit.GetMaxLiterature(context.Background(), client, lit.Request{
 		Query: *queryString,
 	})
-
-	received := 0
-	for pub := range pubChan.Chan {
-		received++
-		log.Event("main", log.Measurement{
-			"received_count": received,
-			"left_count":     pubChan.Total - received,
-			"total_count":    pubChan.Total,
-		}, nil)
-
-		if err := pub.WriteTo(os.Stdout); err != nil {
-			log.Fatale(err)
-		}
-	}
-	if err := pubChan.Err; err != nil {
+	if err != nil {
 		log.Fatale(err)
 	}
+	fmt.Fprintf(os.Stdout, "query=%q\n", query)
+	fmt.Fprintf(os.Stdout, "results_count=%d\n", max)
 }

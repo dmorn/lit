@@ -59,6 +59,7 @@ type openSearchLink struct {
 
 type openSearchEntry struct {
 	Title string           `json:"dc:title"`
+	Eid   string           `json:"eid"`
 	Links []openSearchLink `json:"link"`
 }
 
@@ -76,6 +77,7 @@ func mapPublications(entries []openSearchEntry) []lit.Publication {
 		}
 		pubs[i] = lit.Publication{
 			Title: v.Title,
+			Eid:   v.Eid,
 			Links: links,
 		}
 	}
