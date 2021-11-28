@@ -32,12 +32,12 @@ type Review struct {
 }
 
 type Publication struct {
-	Title    string            `json:"title"`
-	Eid      string            `json:"eid"`
-	Links    map[string]string `json:"links"`
-	Abstract Abstract          `json:"abstract,omitempty"`
+	Title string            `json:"title"`
+	Eid   string            `json:"eid"`
+	Links map[string]string `json:"links"`
 
-	Review `json:"review,omitempty"`
+	*Abstract `json:"abstract,omitempty"`
+	*Review   `json:"review,omitempty"`
 }
 
 func writeTo(w io.Writer, i interface{}) error {
@@ -58,7 +58,7 @@ func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
 	if err != nil {
 		return err
 	}
-	p.Abstract = abs
+	p.Abstract = &abs
 	return nil
 }
 
