@@ -18,7 +18,7 @@ const (
 )
 
 type Abstract struct {
-	Text string
+	Text string `json:"text"`
 }
 
 func (a Abstract) WriteTo(w io.Writer) error {
@@ -54,7 +54,7 @@ func (p Publication) WriteTo(w io.Writer) error {
 }
 
 func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
-	abs, err := lib.GetAbstract(ctx, p.Eid)
+	abs, err := lib.GetAbstract(ctx, *p)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ type Library interface {
 	ConcurrencyLimit() int
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
-	GetAbstract(context.Context, string) (Abstract, error)
+	GetAbstract(context.Context, Publication) (Abstract, error)
 }
 
 func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Publication) error {

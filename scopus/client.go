@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
-	"net/http/httputil"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -166,41 +165,6 @@ func (c Client) GetLink(ctx context.Context, link string) (io.ReadCloser, error)
 	return resp.Body, nil
 }
 
-func (c Client) GetAbstract(ctx context.Context, id string) (lit.Abstract, error) {
-	u, err := url.Parse(fmt.Sprintf(abstractEndpoint, id))
-	if err != nil {
-		panic(err)
-	}
-	q := u.Query()
-
-	q.Set("view", "META")
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		panic(err)
-	}
-	req.Header.Set("X-ELS-APIKey", c.apiKey)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return lit.Abstract{}, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return lit.Abstract{}, extractError(resp)
-	}
-	defer resp.Body.Close()
-
-	data, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s\n", string(data))
-
-	return lit.Abstract{}, fmt.Errorf("not implemented")
-}
-
 func ParseAbstract(r io.Reader) (string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -240,6 +204,22 @@ func ParseAbstract(r io.Reader) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not find abstract char data within abstract section")
+}
+
+func (c Client) GetAbstract(ctx context.Context, p lit.Publication) (lit.Abstract, error) {
+	body, err := c.GetLink(ctx, p.Links["scopus"])
+	if err != nil {
+		return lit.Abstract{}, err
+	}
+	defer body.Close()
+
+	text, err := ParseAbstract(body)
+	if err != nil {
+		return lit.Abstract{}, err
+	}
+	return lit.Abstract{
+		Text: text,
+	}, nil
 }
 
 func NewClient(apiKey string) Client {

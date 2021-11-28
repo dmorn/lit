@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"io"
 	"os"
 
 	"github.com/jecoz/lit"
@@ -26,12 +25,14 @@ func main() {
 	log.Info("Publications read: %d\n", len(pubs))
 
 	client := scopus.NewClient(scopusKey)
-	pub := pubs[0]
+	ctx := context.Background()
 
-	body, err := client.GetLink(context.Background(), pub.Links["scopus"])
-	if err != nil {
-		log.Fatale(err)
+	for _, pub := range pubs {
+		if err := pub.GetAbstract(ctx, client); err != nil {
+			log.Fatale(err)
+		}
+		if err := pub.Abstract.WriteTo(os.Stdout); err != nil {
+			log.Fatale(err)
+		}
 	}
-	defer body.Close()
-	io.Copy(os.Stdout, body)
 }
