@@ -1,19 +1,27 @@
 package scopus
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/http/httputil"
 	"net/url"
+	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/jecoz/lit"
+	"golang.org/x/net/publicsuffix"
 )
 
 const (
-	searchEndpoint = "https://api.elsevier.com/content/search/scopus"
+	searchEndpoint   = "https://api.elsevier.com/content/search/scopus"
+	abstractEndpoint = "https://api.elsevier.com/content/abstract/eid/%s"
 )
 
 type Client struct {
@@ -135,14 +143,124 @@ func (c Client) ConcurrencyLimit() int {
 	return 6
 }
 
+func (c Client) GetLink(ctx context.Context, link string) (io.ReadCloser, error) {
+	u, err := url.Parse(link)
+	if err != nil {
+		panic(err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("X-ELS-APIKey", c.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+func (c Client) GetAbstract(ctx context.Context, id string) (lit.Abstract, error) {
+	u, err := url.Parse(fmt.Sprintf(abstractEndpoint, id))
+	if err != nil {
+		panic(err)
+	}
+	q := u.Query()
+
+	q.Set("view", "META")
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("X-ELS-APIKey", c.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return lit.Abstract{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return lit.Abstract{}, extractError(resp)
+	}
+	defer resp.Body.Close()
+
+	data, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", string(data))
+
+	return lit.Abstract{}, fmt.Errorf("not implemented")
+}
+
+func ParseAbstract(r io.Reader) (string, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	buf := bytes.NewReader(data)
+
+	rgx := regexp.MustCompile("<section +.*id=\"abstractSection\".*>")
+	index := rgx.FindReaderIndex(buf)
+	if index == nil {
+		return "", fmt.Errorf("abstractSection not found within input reader")
+	}
+
+	buf.Seek(int64(index[0]), io.SeekStart)
+
+	d := xml.NewDecoder(buf)
+	d.Strict = false
+	d.AutoClose = xml.HTMLAutoClose
+	d.Entity = xml.HTMLEntity
+
+	max := 50
+	for i := 0; i < max; i++ {
+		t, err := d.Token()
+		if err != nil {
+			return "", fmt.Errorf("find abstract char data: %w", err)
+		}
+		if se, ok := t.(xml.StartElement); ok && se.Name.Local == "p" {
+			next, err := d.Token()
+			if err != nil {
+				panic(err)
+			}
+			cd, ok := next.(xml.CharData)
+			if !ok {
+				return "", fmt.Errorf("expected to find char data after paragraph, found %T", next)
+			}
+			return string(cd), nil
+		}
+	}
+	return "", fmt.Errorf("could not find abstract char data within abstract section")
+}
+
 func NewClient(apiKey string) Client {
 	tr := &http.Transport{
 		MaxIdleConns:       10,
 		IdleConnTimeout:    15 * time.Second,
 		DisableCompression: false,
 	}
+
+	// Used for folling scopus links. Remember the default CheckRedirect
+	// function allows at most 10 redirects to be followed.
+	jar, err := cookiejar.New(&cookiejar.Options{
+		PublicSuffixList: publicsuffix.List,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	client := &http.Client{
 		Transport: tr,
+		Jar:       jar,
 	}
 
 	return Client{

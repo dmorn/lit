@@ -1,10 +1,13 @@
 package lit
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/jecoz/lit/log"
@@ -14,25 +17,48 @@ const (
 	DefaultPerPage = 25
 )
 
-const (
-	TagTitle = "#pub:title[%d]:%s"
-	TagEid   = "#pub:eid[%d]:%s"
-	TagLink  = "#pub:link[%d]:%s[%d]:%s"
-)
+type Abstract struct {
+	Text string
+}
+
+func (a Abstract) WriteTo(w io.Writer) error {
+	return writeTo(w, a)
+}
+
+type Review struct {
+	IsAccepted   bool   `json:"is_accepted"`
+	Notes        string `json:"notes"`
+	RejectReason string `json:"reject_reason"`
+}
 
 type Publication struct {
-	Title string
-	Eid   string
-	Links map[string]string
+	Title    string            `json:"title"`
+	Eid      string            `json:"eid"`
+	Links    map[string]string `json:"links"`
+	Abstract Abstract          `json:"abstract,omitempty"`
+
+	Review `json:"review,omitempty"`
+}
+
+func writeTo(w io.Writer, i interface{}) error {
+	data, err := json.Marshal(i)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%s\n", strings.ReplaceAll(string(data), "\n", ""))
+	return nil
 }
 
 func (p Publication) WriteTo(w io.Writer) error {
-	fmt.Fprintf(w, TagTitle+"\n", len(p.Title), p.Title)
-	fmt.Fprintf(w, TagEid+"\n", len(p.Eid), p.Eid)
-	for k, v := range p.Links {
-		fmt.Fprintf(w, TagLink+"\n", len(k), k, len(v), v)
+	return writeTo(w, p)
+}
+
+func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
+	abs, err := lib.GetAbstract(ctx, p.Eid)
+	if err != nil {
+		return err
 	}
-	fmt.Fprintln(w, "")
+	p.Abstract = abs
 	return nil
 }
 
@@ -73,6 +99,7 @@ type Library interface {
 	ConcurrencyLimit() int
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
+	GetAbstract(context.Context, string) (Abstract, error)
 }
 
 func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Publication) error {
@@ -149,4 +176,20 @@ func GetLiterature(ctx context.Context, lib Library, req Request) *PublicationCh
 
 func GetMaxLiterature(ctx context.Context, lib Library, req Request) (int, error) {
 	return lib.GetMaxLiterature(ctx, req)
+}
+
+func ReadLiterature(r io.Reader) ([]Publication, error) {
+	scan := bufio.NewScanner(r)
+	acc := []Publication{}
+	for scan.Scan() {
+		var p Publication
+		if err := json.Unmarshal(scan.Bytes(), &p); err != nil {
+			return acc, fmt.Errorf("unexpected publication line: %w", err)
+		}
+		acc = append(acc, p)
+	}
+	if err := scan.Err(); err != nil {
+		return acc, err
+	}
+	return acc, nil
 }
