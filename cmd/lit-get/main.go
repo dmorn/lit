@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 
+	"github.com/jecoz/edb"
 	"github.com/jecoz/lit"
 	"github.com/jecoz/lit/log"
 	"github.com/jecoz/lit/scopus"
@@ -17,21 +19,36 @@ var (
 
 var (
 	queryString = flag.String("q", defaultQuery, "Query string")
+	edbPath     = flag.String("edb", "lit.edb", "Event database file. Everything will be stored here.")
 )
 
-func main() {
-	flag.Parse()
-
+func Main() error {
 	query := *queryString
 	if query == "" {
-		log.Fatalf("no query string provided")
+		return fmt.Errorf("no query string provided")
 	}
 
-	client := scopus.NewClient(scopusKey)
+	os.Remove(*edbPath)
+	db, err := edb.Open(*edbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
 
+	client := scopus.NewClient(scopusKey)
 	pubChan := lit.GetLiterature(context.Background(), client, lit.Request{
 		Query: *queryString,
 	})
+
+	if err := db.Append(&edb.Event{
+		Id:     fmt.Sprintf("query"),
+		Issuer: "lit",
+		Scope:  "lit",
+		Action: "set_query",
+		Data:   []string{*queryString},
+	}); err != nil {
+		return err
+	}
 
 	received := 0
 	for pub := range pubChan.Chan {
@@ -41,12 +58,27 @@ func main() {
 			"left_count":     pubChan.Total - received,
 			"total_count":    pubChan.Total,
 		}, nil)
-
-		if err := pub.WriteTo(os.Stdout); err != nil {
-			log.Fatale(err)
+		data, err := pub.Marshal()
+		if err != nil {
+			return err
+		}
+		if err := db.Append(&edb.Event{
+			Id:     fmt.Sprintf("%d", received),
+			Issuer: "scopus",
+			Scope:  "lit",
+			Action: "add_lit",
+			Data:   []string{data},
+		}); err != nil {
+			return err
 		}
 	}
-	if err := pubChan.Err; err != nil {
+	return pubChan.Err
+}
+
+func main() {
+	flag.Parse()
+
+	if err := Main(); err != nil {
 		log.Fatale(err)
 	}
 }

@@ -2,6 +2,7 @@ package lit
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,9 +27,9 @@ func (a Abstract) WriteTo(w io.Writer) error {
 }
 
 type Review struct {
-	IsAccepted   bool   `json:"is_accepted"`
-	Notes        string `json:"notes"`
-	RejectReason string `json:"reject_reason"`
+	IsAccepted    bool   `json:"is_accepted"`
+	IsHighlighted bool   `json:"is_highlighted"`
+	RejectReason  string `json:"reject_reason"`
 }
 
 type Publication struct {
@@ -40,12 +41,24 @@ type Publication struct {
 	*Review   `json:"review,omitempty"`
 }
 
+func (p Publication) Marshal() (string, error) {
+	var buf bytes.Buffer
+	if err := writeTo(&buf, &p); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (p *Publication) Unmarshal(data string) error {
+	return json.Unmarshal([]byte(data), p)
+}
+
 func writeTo(w io.Writer, i interface{}) error {
 	data, err := json.Marshal(i)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "%s\n", strings.ReplaceAll(string(data), "\n", ""))
+	fmt.Fprintf(w, "%s", strings.ReplaceAll(string(data), "\n", ""))
 	return nil
 }
 
