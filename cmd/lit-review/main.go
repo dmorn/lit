@@ -80,9 +80,9 @@ type model struct {
 	client lit.Library
 
 	cursor        int
-	acceptedCount int
-	rejectedCount int
 	pubs          []lit.Publication
+	rejectedCount int
+	acceptedCount int
 	err           error
 
 	help     help.Model
@@ -130,7 +130,7 @@ func getAbstract(client lit.Library, p lit.Publication) tea.Cmd {
 			return nil
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 
 		if err := p.GetAbstract(ctx, client); err != nil {
@@ -193,6 +193,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m.pubs[m.cursor] = msg.pub
+		if rev := msg.pub.Review; rev != nil {
+			if rev.IsAccepted {
+				m.acceptedCount++
+			} else {
+				m.rejectedCount++
+			}
+		}
 		return m, msg.next
 	case cursorMsg:
 		if err := m.db.Append(&edb.Event{
@@ -206,19 +213,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m.cursor = int(msg)
+		m.err = nil
 		return m, getAbstract(m.client, m.pubs[m.cursor])
 	}
 	return m, nil
 }
 
 var (
-	bodyStyle     = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	titleStyle    = bodyStyle.Copy().Bold(true).MarginBottom(Margin)
-	abstractStyle = bodyStyle.Copy()
-	loadingStyle  = bodyStyle.Copy().Blink(true)
-	errorStyle    = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
-	helpStyle     = bodyStyle.Copy()
-	statsStyle    = bodyStyle.Copy()
+	bodyStyle         = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
+	titleStyle        = bodyStyle.Copy().Bold(true).MarginBottom(Margin)
+	abstractStyle     = bodyStyle.Copy()
+	loadingStyle      = bodyStyle.Copy().Blink(true)
+	errorStyle        = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
+	helpStyle         = bodyStyle.Copy()
+	statsStyle        = bodyStyle.Copy()
+	acceptedListStyle = bodyStyle.Copy().Foreground(lipgloss.AdaptiveColor{
+		Light: "#909090",
+		Dark:  "#626262",
+	})
 )
 
 func (m model) View() string {
@@ -241,15 +253,15 @@ func (m model) View() string {
 		m.cursor+1,
 	))
 
-	body := fmt.Sprintf("%s\n%s\n%s\n%s\n",
+	helpView := helpStyle.Render(m.help.View(keys))
+
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n",
 		title,
 		abstract,
 		progress,
 		stats,
+		helpView,
 	)
-
-	helpView := helpStyle.Render(m.help.View(keys))
-	return body + helpView
 }
 
 func Main() error {
@@ -305,7 +317,12 @@ func Main() error {
 		return err
 	}
 	if seen := rejectedCount + acceptedCount; seen != cursor+1 {
-		return fmt.Errorf("database inconsistency: saw %d reviews (accepted %d + rejected %d) with cursor @%d")
+		return fmt.Errorf("database inconsistency: saw %d reviews (accepted %d + rejected %d) with cursor @%d",
+			seen,
+			acceptedCount,
+			rejectedCount,
+			cursor+1,
+		)
 	}
 
 	return tea.NewProgram(model{
@@ -318,7 +335,7 @@ func Main() error {
 		pubs:          pubs,
 		help:          help.NewModel(),
 		progress:      progress.NewModel(progress.WithDefaultGradient()),
-	}, tea.WithAltScreen()).Start()
+	}).Start()
 }
 
 func main() {
