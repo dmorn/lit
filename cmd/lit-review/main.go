@@ -79,9 +79,11 @@ type model struct {
 	query  string
 	client lit.Library
 
-	cursor int
-	pubs   []lit.Publication
-	err    error
+	cursor        int
+	acceptedCount int
+	rejectedCount int
+	pubs          []lit.Publication
+	err           error
 
 	help     help.Model
 	progress progress.Model
@@ -105,6 +107,37 @@ func makeReview(p lit.Publication, r lit.Review, next int) tea.Cmd {
 		return publicationMsg{
 			pub:  p,
 			next: moveCursor(next),
+		}
+	}
+}
+
+type errMsg struct {
+	err error
+}
+
+func (m errMsg) Error() string {
+	return m.err.Error()
+}
+
+type publicationMsg struct {
+	pub  lit.Publication
+	next tea.Cmd
+}
+
+func getAbstract(client lit.Library, p lit.Publication) tea.Cmd {
+	return func() tea.Msg {
+		if p.Abstract != nil {
+			return nil
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		if err := p.GetAbstract(ctx, client); err != nil {
+			return errMsg{err}
+		}
+		return publicationMsg{
+			pub: p,
 		}
 	}
 }
@@ -142,7 +175,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// TODO: we actually don't want to quit here but rather show the
 		// error to the user. It may want to retry.
 		m.err = msg
-		return m, tea.Quit
+		return m, nil
 	case publicationMsg:
 		data, err := msg.pub.Marshal()
 		if err != nil {
@@ -180,11 +213,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var (
 	bodyStyle     = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	titleStyle    = bodyStyle.Copy().Bold(true).Underline(true).MarginBottom(Margin)
+	titleStyle    = bodyStyle.Copy().Bold(true).MarginBottom(Margin)
 	abstractStyle = bodyStyle.Copy()
 	loadingStyle  = bodyStyle.Copy().Blink(true)
 	errorStyle    = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
 	helpStyle     = bodyStyle.Copy()
+	statsStyle    = bodyStyle.Copy()
 )
 
 func (m model) View() string {
@@ -194,52 +228,28 @@ func (m model) View() string {
 	abstract := loadingStyle.Render("downloading abstract...")
 	switch {
 	case m.err != nil:
-		abstract = errorStyle.Render(m.err.Error())
+		abstract = errorStyle.Render(fmt.Sprintf("error: %v", m.err))
 	case p.Abstract != nil:
 		abstract = abstractStyle.Render(p.Abstract.GetText())
 	}
 	progress := bodyStyle.Render(m.progress.ViewAs(float64(m.cursor+1) / float64(len(m.pubs))))
-	progress = bodyStyle.Render(m.progress.ViewAs(1.0))
 
-	body := fmt.Sprintf("%s\n%s\n%s\n",
+	stats := statsStyle.Render(fmt.Sprintf("[accepted=%d rejected=%d total=%d current=%d]",
+		m.acceptedCount,
+		m.rejectedCount,
+		len(m.pubs),
+		m.cursor+1,
+	))
+
+	body := fmt.Sprintf("%s\n%s\n%s\n%s\n",
 		title,
 		abstract,
 		progress,
+		stats,
 	)
 
-	helpView := bodyStyle.Render(m.help.View(keys))
+	helpView := helpStyle.Render(m.help.View(keys))
 	return body + helpView
-}
-
-type errMsg struct {
-	err error
-}
-
-func (m errMsg) Error() string {
-	return m.err.Error()
-}
-
-type publicationMsg struct {
-	pub  lit.Publication
-	next tea.Cmd
-}
-
-func getAbstract(client lit.Library, p lit.Publication) tea.Cmd {
-	return func() tea.Msg {
-		if p.Abstract != nil {
-			return nil
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-
-		if err := p.GetAbstract(ctx, client); err != nil {
-			return errMsg{err}
-		}
-		return publicationMsg{
-			pub: p,
-		}
-	}
 }
 
 func Main() error {
@@ -252,6 +262,8 @@ func Main() error {
 	query := ""
 	pubs := []lit.Publication{}
 	cursor := 0
+	rejectedCount := 0
+	acceptedCount := 0
 	if err := db.Revive(func(e edb.Event) error {
 		switch e.Action {
 		case "set_query":
@@ -266,6 +278,13 @@ func Main() error {
 			p := new(lit.Publication)
 			if err := p.Unmarshal(e.Data[0]); err != nil {
 				return err
+			}
+			if rev := p.Review; rev != nil {
+				if rev.IsAccepted {
+					acceptedCount++
+				} else {
+					rejectedCount++
+				}
 			}
 			index, err := strconv.Atoi(e.Data[1])
 			if err != nil {
@@ -285,15 +304,20 @@ func Main() error {
 	}); err != nil {
 		return err
 	}
+	if seen := rejectedCount + acceptedCount; seen != cursor+1 {
+		return fmt.Errorf("database inconsistency: saw %d reviews (accepted %d + rejected %d) with cursor @%d")
+	}
 
 	return tea.NewProgram(model{
-		db:       db,
-		client:   scopus.NewClient(scopusKey),
-		cursor:   cursor,
-		query:    query,
-		pubs:     pubs,
-		help:     help.NewModel(),
-		progress: progress.NewModel(progress.WithDefaultGradient()),
+		db:            db,
+		client:        scopus.NewClient(scopusKey),
+		cursor:        cursor,
+		acceptedCount: acceptedCount,
+		rejectedCount: rejectedCount,
+		query:         query,
+		pubs:          pubs,
+		help:          help.NewModel(),
+		progress:      progress.NewModel(progress.WithDefaultGradient()),
 	}, tea.WithAltScreen()).Start()
 }
 
