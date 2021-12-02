@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jecoz/edb"
 	"github.com/jecoz/lit"
 	"github.com/jecoz/lit/log"
@@ -24,7 +27,52 @@ var (
 	edbPath = flag.String("edb", "lit.edb", "Event database file. Everything will be stored here.")
 )
 
-const CommandsHelp = "Accept=[a] Accept+Highligh=[A] Reject=[r] Quit=[q]"
+const (
+	MaxWidth = 120
+	Margin   = 1
+)
+
+type keyMap struct {
+	Accept    key.Binding
+	Highlight key.Binding
+	Reject    key.Binding
+	Help      key.Binding
+	Quit      key.Binding
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Accept, k.Highlight, k.Reject}, // first column
+		{k.Help, k.Quit},                  // second column
+	}
+}
+
+var keys = keyMap{
+	Accept: key.NewBinding(
+		key.WithKeys("a"),
+		key.WithHelp("a", "accept publication"),
+	),
+	Highlight: key.NewBinding(
+		key.WithKeys("A"),
+		key.WithHelp("A", "accept publication, with highlight"),
+	),
+	Reject: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "reject publication"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("h"),
+		key.WithHelp("h", "toggle help"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("q", "esc", "ctrl+c"),
+		key.WithHelp("q", "quit"),
+	),
+}
 
 type model struct {
 	db     *edb.Db
@@ -34,6 +82,9 @@ type model struct {
 	cursor int
 	pubs   []lit.Publication
 	err    error
+
+	help     help.Model
+	progress progress.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -60,20 +111,28 @@ func makeReview(p lit.Publication, r lit.Review, next int) tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.help.Width = msg.Width
+		m.progress.Width = msg.Width - Margin*2 - 4
+		if m.progress.Width > MaxWidth {
+			m.progress.Width = MaxWidth
+		}
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q", "Q":
+		switch {
+		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
-		case "a":
+		case key.Matches(msg, keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
+		case key.Matches(msg, keys.Accept):
 			return m, makeReview(m.pubs[m.cursor], lit.Review{
 				IsAccepted: true,
 			}, m.cursor+1)
-		case "A":
+		case key.Matches(msg, keys.Highlight):
 			return m, makeReview(m.pubs[m.cursor], lit.Review{
 				IsAccepted:    true,
 				IsHighlighted: true,
 			}, m.cursor+1)
-		case "r":
+		case key.Matches(msg, keys.Reject):
 			return m, makeReview(m.pubs[m.cursor], lit.Review{
 				IsAccepted:   false,
 				RejectReason: "rejected with no particular reason",
@@ -119,34 +178,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+var (
+	bodyStyle     = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
+	titleStyle    = bodyStyle.Copy().Bold(true).Underline(true).MarginBottom(Margin)
+	abstractStyle = bodyStyle.Copy()
+	loadingStyle  = bodyStyle.Copy().Blink(true)
+	errorStyle    = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
+	helpStyle     = bodyStyle.Copy()
+)
+
 func (m model) View() string {
 	p := m.pubs[m.cursor]
-	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("%s\n", p.Title))
+	title := titleStyle.Render(p.Title)
+	abstract := loadingStyle.Render("downloading abstract...")
 	switch {
 	case m.err != nil:
-		b.WriteString(fmt.Sprintf("error: %v\n", m.err))
+		abstract = errorStyle.Render(m.err.Error())
 	case p.Abstract != nil:
-		b.WriteString(fmt.Sprintf("\n"))
-
-		r := strings.NewReader(p.Abstract.Text)
-		buf := make([]byte, 80)
-		for {
-			n, _ := r.Read(buf)
-			if n < len(buf) {
-				break
-			}
-			b.WriteString(fmt.Sprintf("%s\n", string(buf)))
-		}
-		b.WriteString(fmt.Sprintf("%s\n\n", string(buf)))
-
-	default:
-		b.WriteString(fmt.Sprintf("downloading abstract...\n"))
+		abstract = abstractStyle.Render(p.Abstract.GetText())
 	}
-	b.WriteString(fmt.Sprintf("(%d/%d)\n", m.cursor+1, len(m.pubs)))
-	b.WriteString(fmt.Sprintf("%s\n", CommandsHelp))
-	return b.String()
+	progress := bodyStyle.Render(m.progress.ViewAs(float64(m.cursor+1) / float64(len(m.pubs))))
+	progress = bodyStyle.Render(m.progress.ViewAs(1.0))
+
+	body := fmt.Sprintf("%s\n%s\n%s\n",
+		title,
+		abstract,
+		progress,
+	)
+
+	helpView := bodyStyle.Render(m.help.View(keys))
+	return body + helpView
 }
 
 type errMsg struct {
@@ -225,11 +287,13 @@ func Main() error {
 	}
 
 	return tea.NewProgram(model{
-		db:     db,
-		client: scopus.NewClient(scopusKey),
-		cursor: cursor,
-		query:  query,
-		pubs:   pubs,
+		db:       db,
+		client:   scopus.NewClient(scopusKey),
+		cursor:   cursor,
+		query:    query,
+		pubs:     pubs,
+		help:     help.NewModel(),
+		progress: progress.NewModel(progress.WithDefaultGradient()),
 	}, tea.WithAltScreen()).Start()
 }
 

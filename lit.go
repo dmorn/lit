@@ -22,6 +22,10 @@ type Abstract struct {
 	Text string `json:"text"`
 }
 
+func (a Abstract) GetText() string {
+	return strings.ReplaceAll(a.Text, "\n", "")
+}
+
 func (a Abstract) WriteTo(w io.Writer) error {
 	return writeTo(w, a)
 }
