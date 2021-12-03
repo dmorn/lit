@@ -200,7 +200,7 @@ func Main() error {
 				return fmt.Errorf("parse maximum literature count: %w", err)
 			}
 		default:
-			fmt.Printf("unhandled event %s\n", e.Id)
+			return nil
 		}
 		return nil
 	}); err != nil {
