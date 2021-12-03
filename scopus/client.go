@@ -222,6 +222,10 @@ func (c Client) GetAbstract(ctx context.Context, p lit.Publication) (lit.Abstrac
 	}, nil
 }
 
+func (c Client) GetName() string {
+	return "Scopus by ELSEVIER"
+}
+
 func NewClient(apiKey string) Client {
 	tr := &http.Transport{
 		MaxIdleConns:       10,

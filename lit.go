@@ -113,6 +113,7 @@ func (r Response) IsEmpty() bool {
 }
 
 type Library interface {
+	GetName() string
 	ConcurrencyLimit() int
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
