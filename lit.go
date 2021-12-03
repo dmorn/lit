@@ -56,7 +56,7 @@ func takeMaxRunes(s string, n int) string {
 	take := 0
 	for i := 0; i < n; i++ {
 		ru, size, err := r.ReadRune()
-		if err != nil || unicode.IsSpace(ru) {
+		if err != nil || !unicode.IsLetter(ru) {
 			break
 		}
 		take += size
