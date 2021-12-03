@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 	"unicode"
-
-	"github.com/jecoz/lit/log"
 )
 
 const (
@@ -167,11 +165,14 @@ func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Pu
 
 	for i := 0; i < req.MaxPage; i++ {
 		go func(i int) {
-			cc <- struct{}{}
-			defer func() { <-cc }()
+			select {
+			case cc <- struct{}{}:
+				defer func() { <-cc }()
+			case <-ctx.Done():
+				return
+			}
 
 			req.Page = i
-
 			resp, err := lib.GetLiterature(ctx, req)
 			if err != nil {
 				once.Do(func() {
@@ -211,14 +212,6 @@ func GetLiterature(ctx context.Context, lib Library, req Request) *PublicationCh
 
 	req.MaxPage = int(math.Ceil(float64(maxItems) / float64(req.PerPage)))
 	pc.Total = maxItems
-
-	log.Event("lit.SearchLiterature", log.Measurement{
-		"per_page":  req.PerPage,
-		"max_page":  req.MaxPage,
-		"max_items": pc.Total,
-	}, log.Metadata{
-		"query": req.Query,
-	})
 
 	go func() {
 		defer close(pubChan)
