@@ -50,7 +50,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 
 var keys = keyMap{
 	Search: key.NewBinding(
-		key.WithKeys("s", "enter"),
+		key.WithKeys("enter"),
 		key.WithHelp("enter", "issue query"),
 	),
 	Quit: key.NewBinding(
@@ -122,7 +122,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case errMsg:
 		m.err = msg
-		m.searching = false
 		return m, nil
 	case maxMsg:
 		if err := m.db.Append(&edb.Event{
@@ -148,7 +147,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var (
 	bodyStyle      = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	titleStyle     = bodyStyle.Copy().Bold(true)
 	resultStyle    = bodyStyle.Copy()
 	errorStyle     = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
 	helpStyle      = bodyStyle.Copy()
@@ -166,16 +164,14 @@ func (m model) queryView() string {
 	if m.err != nil {
 		return errorStyle.Render(fmt.Sprintf("error: %v", m.err))
 	}
-	return resultStyle.Render(fmt.Sprintf("Hit %d results with %q", m.max, m.query))
+	return resultStyle.Render(fmt.Sprintf("query hit %d results", m.max))
 }
 
 func (m model) View() string {
-	titleView := titleStyle.Render(fmt.Sprintf("Crawling %s", m.client.GetName()))
 	textView := inputStyle.Render(m.textInput.View())
 	helpView := helpStyle.Render(m.help.View(keys))
 
-	return fmt.Sprintf("%s\n%s\n%s\n%s\n",
-		titleView,
+	return fmt.Sprintf("%s\n%s\n%s\n",
 		textView,
 		m.queryView(),
 		helpView,

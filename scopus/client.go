@@ -65,9 +65,20 @@ type openSearchLink struct {
 }
 
 type openSearchEntry struct {
-	Title string           `json:"dc:title"`
-	Eid   string           `json:"eid"`
-	Links []openSearchLink `json:"link"`
+	Title        string           `json:"dc:title"`
+	Eid          string           `json:"eid"`
+	CoverDateRaw string           `json:"prism:coverDate"`
+	Creator      string           `json:"dc:creator"`
+	Issn         string           `json:"prism:issn"`
+	Links        []openSearchLink `json:"link"`
+}
+
+func (e openSearchEntry) CoverDate() (time.Time, error) {
+	t, err := time.Parse("2006-01-02", e.CoverDateRaw)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse cover date: %w", err)
+	}
+	return t, nil
 }
 
 type openSearchResult struct {
@@ -75,20 +86,27 @@ type openSearchResult struct {
 	Entries []openSearchEntry `json:"entry"`
 }
 
-func mapPublications(entries []openSearchEntry) []lit.Publication {
+func mapPublications(entries []openSearchEntry) ([]lit.Publication, error) {
 	pubs := make([]lit.Publication, len(entries))
 	for i, v := range entries {
+		coverDate, err := v.CoverDate()
+		if err != nil {
+			return pubs, fmt.Errorf("search result %d, %s: %w", i, v.Eid)
+		}
 		links := make(map[string]string)
-		for _, w := range v.Links {
-			links[w.Tag] = w.Ref
+		for _, v := range v.Links {
+			links[v.Tag] = v.Ref
 		}
 		pubs[i] = lit.Publication{
-			Title: v.Title,
-			Eid:   v.Eid,
-			Links: links,
+			Title:        v.Title,
+			Eid:          v.Eid,
+			Issn:         v.Issn,
+			CoverDate:    coverDate,
+			Creator:      v.Creator,
+			LinkAbstract: links["scopus"],
 		}
 	}
-	return pubs
+	return pubs, nil
 }
 
 func (c Client) getSearchResults(ctx context.Context, req lit.Request) (*openSearchResult, error) {
@@ -117,10 +135,13 @@ func (c Client) GetLiterature(ctx context.Context, req lit.Request) (lit.Respons
 	if err != nil {
 		return lit.Response{}, err
 	}
-
+	pubs, err := mapPublications(result.Entries)
+	if err != nil {
+		return lit.Response{}, err
+	}
 	return lit.Response{
 		Req:        req,
-		Literature: mapPublications(result.Entries),
+		Literature: pubs,
 	}, nil
 }
 
@@ -207,7 +228,7 @@ func ParseAbstract(r io.Reader) (string, error) {
 }
 
 func (c Client) GetAbstract(ctx context.Context, p lit.Publication) (lit.Abstract, error) {
-	body, err := c.GetLink(ctx, p.Links["scopus"])
+	body, err := c.GetLink(ctx, p.LinkAbstract)
 	if err != nil {
 		return lit.Abstract{}, err
 	}

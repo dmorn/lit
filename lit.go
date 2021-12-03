@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"strings"
 	"sync"
+	"time"
+	"unicode"
 
 	"github.com/jecoz/lit/log"
 )
@@ -37,12 +40,42 @@ type Review struct {
 }
 
 type Publication struct {
-	Title string            `json:"title"`
-	Eid   string            `json:"eid"`
-	Links map[string]string `json:"links"`
+	Title     string    `json:"title"`
+	Eid       string    `json:"eid"`
+	Issn      string    `json:"issn"`
+	CoverDate time.Time `json:"cover_date"`
+	Creator   string    `json:"creator"`
+
+	LinkAbstract string `json:"link_abstract"`
 
 	*Abstract `json:"abstract,omitempty"`
 	*Review   `json:"review,omitempty"`
+}
+
+func takeMaxRunes(s string, n int) string {
+	s = strings.TrimSpace(s)
+	r := strings.NewReader(s)
+	take := 0
+	for i := 0; i < n; i++ {
+		ru, size, err := r.ReadRune()
+		if err != nil || unicode.IsSpace(ru) {
+			break
+		}
+		take += size
+	}
+	return string([]byte(s)[:take])
+}
+
+func (p Publication) CreatorShort() string {
+	return takeMaxRunes(p.Creator, 3)
+}
+
+func (p Publication) TitleShort() string {
+	return takeMaxRunes(p.Title, 5)
+}
+
+func (p Publication) BibId() string {
+	return fmt.Sprintf("%s%d%s", p.CreatorShort(), p.CoverDate.Year(), p.TitleShort())
 }
 
 func (p Publication) Marshal() (string, error) {
@@ -62,8 +95,11 @@ func writeTo(w io.Writer, i interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "%s", strings.ReplaceAll(string(data), "\n", ""))
-	return nil
+	baseEnc := base64.NewEncoder(base64.StdEncoding, w)
+	if _, err := baseEnc.Write(data); err != nil {
+		return err
+	}
+	return baseEnc.Close()
 }
 
 func (p Publication) WriteTo(w io.Writer) error {
