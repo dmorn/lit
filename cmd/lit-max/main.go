@@ -176,7 +176,7 @@ func (m model) View() string {
 
 	return fmt.Sprintf("%s\n%s\n%s\n",
 		textView,
-		queryView(),
+		m.queryView(),
 		helpView,
 	)
 }
@@ -200,6 +200,7 @@ func Main() error {
 				return fmt.Errorf("parse maximum literature count: %w", err)
 			}
 		default:
+			fmt.Printf("unhandled event %s\n", e.Id)
 		}
 		return nil
 	}); err != nil {
