@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	scopusKey    = os.Getenv("SCOPUS_API_KEY")
+	scopusKey = os.Getenv("SCOPUS_API_KEY")
 )
 
 var (
@@ -33,8 +33,8 @@ var (
 )
 
 type keyMap struct {
-	Search    key.Binding
-	Quit      key.Binding
+	Search key.Binding
+	Quit   key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
@@ -50,7 +50,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 
 var keys = keyMap{
 	Search: key.NewBinding(
-		key.WithKeys("s", "enter"),
+		key.WithKeys("enter"),
 		key.WithHelp("enter", "issue query"),
 	),
 	Quit: key.NewBinding(
@@ -68,7 +68,7 @@ func (m errMsg) Error() string {
 }
 
 type maxMsg struct {
-	max int
+	max   int
 	query string
 }
 
@@ -84,7 +84,7 @@ func getMaxLiterature(client lit.Library, q string) tea.Cmd {
 			return errMsg{err}
 		}
 		return maxMsg{
-			max: max,
+			max:   max,
 			query: q,
 		}
 	}
@@ -95,19 +95,16 @@ type model struct {
 	client lit.Library
 
 	searching bool
-	query  string
-	max    int
-	err    error
+	query     string
+	max       int
+	err       error
 
-	help     help.Model
-	textInput  textinput.Model
+	help      help.Model
+	textInput textinput.Model
 }
 
 func (m model) Init() tea.Cmd {
-	if m.query != "" {
-		return nil
-	}
-	return getMaxLiterature(m.client, m.query)
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -121,7 +118,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.Search):
 			m.searching = true
 			m.err = nil
-			return m, getMaxLiterature(m.client, m.query)
+			return m, getMaxLiterature(m.client, m.textInput.Value())
 		}
 	case errMsg:
 		m.err = msg
@@ -149,11 +146,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	bodyStyle         = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	resultStyle         = bodyStyle.Copy()
-	errorStyle        = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
-	helpStyle         = bodyStyle.Copy()
-	inputStyle        = bodyStyle.Copy()
+	bodyStyle      = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
+	resultStyle    = bodyStyle.Copy()
+	errorStyle     = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
+	helpStyle      = bodyStyle.Copy()
+	inputStyle     = bodyStyle.Copy()
 	searchingStyle = bodyStyle.Copy().Foreground(lipgloss.AdaptiveColor{
 		Light: "#909090",
 		Dark:  "#626262",
@@ -167,7 +164,7 @@ func (m model) queryView() string {
 	if m.err != nil {
 		return errorStyle.Render(fmt.Sprintf("error: %v", m.err))
 	}
-	return resultStyle.Render(fmt.Sprintf("query hit %d results", m.max))
+	return resultStyle.Render(fmt.Sprintf("%q hit %d results", m.query, m.max))
 }
 
 func (m model) View() string {
@@ -213,12 +210,12 @@ func Main() error {
 	ti.CharLimit = 256
 
 	return tea.NewProgram(model{
-		db:            db,
-		client:        scopus.NewClient(scopusKey),
-		textInput:     ti,
-		query:         query,
-		max:           max,
-		help:          help.NewModel(),
+		db:        db,
+		client:    scopus.NewClient(scopusKey),
+		textInput: ti,
+		query:     query,
+		max:       max,
+		help:      help.NewModel(),
 	}).Start()
 }
 
