@@ -228,7 +228,6 @@ func main() {
 	}
 
 	client := scopus.NewClient(scopusKey)
-
 	err = Main(db, client, tea.WithoutCatchPanics())
 	db.Close()
 

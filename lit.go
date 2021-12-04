@@ -1,7 +1,6 @@
 package lit
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -86,7 +85,8 @@ func (p Publication) Marshal() (string, error) {
 }
 
 func (p *Publication) Unmarshal(data string) error {
-	return json.Unmarshal([]byte(data), p)
+	r := base64.NewDecoder(base64.StdEncoding, strings.NewReader(data))
+	return json.NewDecoder(r).Decode(p)
 }
 
 func writeTo(w io.Writer, i interface{}) error {
@@ -242,20 +242,4 @@ func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, r
 
 func GetMaxLiterature(ctx context.Context, lib Library, req Request) (int, error) {
 	return lib.GetMaxLiterature(ctx, req)
-}
-
-func ReadLiterature(r io.Reader) ([]Publication, error) {
-	scan := bufio.NewScanner(r)
-	acc := []Publication{}
-	for scan.Scan() {
-		var p Publication
-		if err := json.Unmarshal(scan.Bytes(), &p); err != nil {
-			return acc, fmt.Errorf("unexpected publication line: %w", err)
-		}
-		acc = append(acc, p)
-	}
-	if err := scan.Err(); err != nil {
-		return acc, err
-	}
-	return acc, nil
 }
