@@ -158,8 +158,12 @@ func (c Client) GetMaxLiterature(ctx context.Context, req lit.Request) (int, err
 	return n, nil
 }
 
-func (c Client) ConcurrencyLimit() int {
+func (c Client) GetRateLimit() time.Duration {
 	// https://dev.elsevier.com/api_key_settings.html
+	return time.Millisecond * 1000 / time.Duration(6)
+}
+
+func (c Client) ConcurrencyLimit() int {
 	return 6
 }
 

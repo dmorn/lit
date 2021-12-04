@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"errors"
-	"testing"
-	//"io"
+	"io"
 	"os"
+	"testing"
 	//"math"
 	"context"
 	"fmt"
@@ -18,7 +18,6 @@ import (
 
 type MockClient struct {
 	t      *testing.T
-	maxCC  int
 	maxLit int
 
 	maxLitErr error
@@ -32,12 +31,8 @@ func (c *MockClient) GetName() string {
 	return "mock client"
 }
 
-func (c *MockClient) ConcurrencyLimit() int {
-	max := c.maxCC
-	if max < 1 {
-		max = 1
-	}
-	return max
+func (c *MockClient) GetRateLimit() time.Duration {
+	return time.Millisecond * 1000 / time.Duration(100)
 }
 
 func (c *MockClient) GetLiterature(ctx context.Context, r lit.Request) (lit.Response, error) {
@@ -107,12 +102,25 @@ func mockDb(q string, maxLit int) (*edb.Db, func()) {
 	}
 }
 
+func mockProgram(t *testing.T, db *edb.Db, client lit.Library) (*tea.Program, io.Writer) {
+	inr, inw := io.Pipe()
+	p, err := Program(db, client,
+		tea.WithoutRenderer(),
+		tea.WithoutCatchPanics(),
+		tea.WithInput(inr),
+		tea.WithOutput(io.Discard),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p, inw
+}
+
 func TestMainExitWithMaxLitErr(t *testing.T) {
 	maxLit := 2
 	maxLitErr := fmt.Errorf("max lit error: unable to do it")
 	client := &MockClient{
 		t:         t,
-		maxCC:     4,
 		maxLit:    maxLit,
 		maxLitErr: maxLitErr,
 	}
@@ -120,11 +128,10 @@ func TestMainExitWithMaxLitErr(t *testing.T) {
 	defer cleanup()
 
 	t.Run("", func(t *testing.T) {
-		_, err := Program(db, client,
+		if _, err := Program(db, client,
 			tea.WithoutRenderer(),
 			tea.WithoutCatchPanics(),
-		)
-		if !errors.Is(err, maxLitErr) {
+		); !errors.Is(err, maxLitErr) {
 			t.Fatalf("unexpected error stored in model: want %q, have %q", maxLitErr, err)
 		}
 	})
@@ -135,25 +142,26 @@ func TestMainExitWithLitErr(t *testing.T) {
 	litErr := fmt.Errorf("lit error: unable to do it")
 	client := &MockClient{
 		t:      t,
-		maxCC:  4,
 		maxLit: maxLit,
 		litErr: litErr,
 	}
 	db, cleanup := mockDb("some q", maxLit)
 	defer cleanup()
 
-	p, _ := Program(db, client,
-		tea.WithoutRenderer(),
-		tea.WithoutCatchPanics(),
-	)
-
 	t.Run("", func(t *testing.T) {
+		p, _ := mockProgram(t, db, client)
 		go func() {
-			<-time.After(500 * time.Millisecond)
+			<-time.After(100*time.Millisecond + time.Duration(maxLit)/client.GetRateLimit())
 			p.Quit()
 		}()
-		i, _ := p.StartReturningModel()
+		i, err := p.StartReturningModel()
+		if err != nil {
+			t.Fatal(err)
+		}
 		m := i.(model)
+		if !m.done {
+			t.Fatalf("program is not done yet")
+		}
 		if !errors.Is(m.err, litErr) {
 			t.Fatalf("unexpected error stored in model: want %q, have %q", litErr, m.err)
 		}

@@ -10,9 +10,10 @@ import (
 	"io"
 	"math"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -162,6 +163,15 @@ type Request struct {
 	MaxPage int
 }
 
+func (r Request) CloneWithPage(p int) Request {
+	return Request{
+		Query:   r.Query,
+		Page:    p,
+		PerPage: r.PerPage,
+		MaxPage: r.MaxPage,
+	}
+}
+
 type Response struct {
 	Req        Request
 	Literature []Publication
@@ -177,48 +187,37 @@ func (r Response) IsEmpty() bool {
 
 type Library interface {
 	GetName() string
-	ConcurrencyLimit() int
+	GetRateLimit() time.Duration
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
 	GetAbstract(context.Context, Publication) (Abstract, error)
 }
 
 func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	var onceErr error
-	var once sync.Once
-
-	cc := make(chan struct{}, lib.ConcurrencyLimit())
-
+	requests := make(chan Request, req.MaxPage)
 	for i := 0; i < req.MaxPage; i++ {
-		go func(i int) {
-			select {
-			case cc <- struct{}{}:
-				defer func() { <-cc }()
-			case <-ctx.Done():
-				return
-			}
+		requests <- req.CloneWithPage(i)
+	}
+	close(requests)
 
-			req.Page = i
-			resp, err := lib.GetLiterature(ctx, req)
+	limiter := time.Tick(lib.GetRateLimit())
+
+	g, ctx := errgroup.WithContext(ctx)
+	for r := range requests {
+		<-limiter
+		r := r
+		g.Go(func() error {
+			resp, err := lib.GetLiterature(ctx, r)
 			if err != nil {
-				once.Do(func() {
-					onceErr = fmt.Errorf("get literature: page %d: %w", i, err)
-					cancel()
-				})
-				return
+				return fmt.Errorf("get literature: page %d: %w", r.Page, err)
 			}
 			for _, pub := range resp.Literature {
 				pubChan.Send(pub)
 			}
-		}(i)
+			return nil
+		})
 	}
-	for i := 0; i < cap(cc); i++ {
-		cc <- struct{}{}
-	}
-	pubChan.CloseWithError(onceErr)
+	pubChan.CloseWithError(g.Wait())
 }
 
 func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {

@@ -72,13 +72,15 @@ type publicationMsg struct {
 	pub lit.Publication
 }
 
-type doneMsg struct{}
+type errMsg struct {
+	err error
+}
 
 func handlePublication(pubchan *lit.PublicationChan) tea.Cmd {
 	return func() tea.Msg {
 		pub, ok := <-pubchan.Recv()
 		if !ok {
-			return doneMsg{}
+			return errMsg{pubchan.Err()}
 		}
 		return publicationMsg{
 			pub: pub,
@@ -110,22 +112,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.progress.Width > MaxWidth {
 			m.progress.Width = MaxWidth
 		}
-		return m, nil
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
 		}
-	case doneMsg:
-		m.err = m.next.Err()
-		if m.err == nil {
-			if m.received < m.max {
-				m.err = fmt.Errorf("download pipeline exited prematurely")
-			} else {
-				m.done = true
-			}
-		}
-		return m, nil
+	case errMsg:
+		m.done = true
+		m.err = msg.err
 	case publicationMsg:
 		m.received++
 		data, err := msg.pub.Marshal()
