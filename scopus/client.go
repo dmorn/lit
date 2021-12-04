@@ -91,7 +91,7 @@ func mapPublications(entries []openSearchEntry) ([]lit.Publication, error) {
 	for i, v := range entries {
 		coverDate, err := v.CoverDate()
 		if err != nil {
-			return pubs, fmt.Errorf("search result %d, %s: %w", i, v.Eid)
+			return pubs, fmt.Errorf("search result %d, %s: %w", i, v.Eid, err)
 		}
 		links := make(map[string]string)
 		for _, v := range v.Links {

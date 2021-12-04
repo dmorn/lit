@@ -114,15 +114,44 @@ func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
 }
 
 type PublicationChan struct {
-	// Chan of publications. Closed when no more will be delivered.
-	Chan <-chan Publication
+	// queue of publications. Closed when no more will be delivered.
+	queue chan Publication
 
-	// Once the Chan is open, Total tells the number of publications to
+	// Once the Chan is open, max tells the number of publications to
 	// expect from it.
-	Total int
+	max int
 
-	// Err is only available after Chan was closed.
-	Err error
+	// err is only available after queue was closed.
+	err error
+}
+
+func (c *PublicationChan) Recv() <-chan Publication {
+	return c.queue
+}
+
+func (c *PublicationChan) Send(p Publication) error {
+	c.queue <- p
+	return nil
+}
+
+func (c *PublicationChan) Max() int {
+	return c.max
+}
+
+func (c *PublicationChan) CloseWithError(err error) {
+	c.err = err
+	close(c.queue)
+}
+
+func (c *PublicationChan) Err() error {
+	return c.err
+}
+
+func NewPublicationChan(max, queueLen int) *PublicationChan {
+	return &PublicationChan{
+		queue: make(chan Publication, queueLen),
+		max:   max,
+	}
 }
 
 type Request struct {
@@ -154,7 +183,7 @@ type Library interface {
 	GetAbstract(context.Context, Publication) (Abstract, error)
 }
 
-func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Publication) error {
+func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -182,43 +211,23 @@ func searchLoop(ctx context.Context, lib Library, req Request, pubChan chan<- Pu
 				return
 			}
 			for _, pub := range resp.Literature {
-				pubChan <- pub
+				pubChan.Send(pub)
 			}
 		}(i)
 	}
 	for i := 0; i < cap(cc); i++ {
 		cc <- struct{}{}
 	}
-
-	return onceErr
+	pubChan.CloseWithError(onceErr)
 }
 
-func GetLiterature(ctx context.Context, lib Library, req Request) *PublicationChan {
-	pubChan := make(chan Publication)
-	pc := &PublicationChan{
-		Chan: pubChan,
-	}
-
+func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
 	if req.PerPage <= 0 {
 		req.PerPage = DefaultPerPage
 	}
+	req.MaxPage = int(math.Ceil(float64(pubChan.Max()) / float64(req.PerPage)))
 
-	maxItems, err := lib.GetMaxLiterature(ctx, req)
-	if err != nil {
-		pc.Err = err
-		close(pubChan)
-		return pc
-	}
-
-	req.MaxPage = int(math.Ceil(float64(maxItems) / float64(req.PerPage)))
-	pc.Total = maxItems
-
-	go func() {
-		defer close(pubChan)
-		pc.Err = searchLoop(ctx, lib, req, pubChan)
-	}()
-
-	return pc
+	searchLoop(ctx, pubChan, lib, req)
 }
 
 func GetMaxLiterature(ctx context.Context, lib Library, req Request) (int, error) {

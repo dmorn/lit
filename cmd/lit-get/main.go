@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -75,9 +74,9 @@ type publicationMsg struct {
 
 type doneMsg struct{}
 
-func recvPublications(c <-chan lit.Publication) tea.Cmd {
+func handlePublication(pubchan *lit.PublicationChan) tea.Cmd {
 	return func() tea.Msg {
-		pub, ok := <-c
+		pub, ok := <-pubchan.Recv()
 		if !ok {
 			return doneMsg{}
 		}
@@ -87,8 +86,20 @@ func recvPublications(c <-chan lit.Publication) tea.Cmd {
 	}
 }
 
+func listenPublications(pubchan *lit.PublicationChan, client lit.Library, query string) tea.Cmd {
+	return func() tea.Msg {
+		lit.GetLiterature(context.Background(), pubchan, client, lit.Request{
+			Query: query,
+		})
+		return nil
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	return recvPublications(m.next.Chan)
+	return tea.Batch(
+		handlePublication(m.next),
+		listenPublications(m.next, m.client, m.query),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -106,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case doneMsg:
-		m.err = m.next.Err
+		m.err = m.next.Err()
 		if m.err == nil {
 			if m.received < m.max {
 				m.err = fmt.Errorf("download pipeline exited prematurely")
@@ -132,7 +143,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = err
 			return m, nil
 		}
-		return m, recvPublications(m.next.Chan)
+		return m, handlePublication(m.next)
 	}
 	return m, nil
 }
@@ -166,54 +177,68 @@ func (m model) View() string {
 	)
 }
 
-func Main() error {
-	db, err := edb.Open(*edbPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
+func Program(db *edb.Db, client lit.Library, opts ...tea.ProgramOption) (*tea.Program, error) {
 	query := ""
-	max := 0
 	if err := db.Revive(func(e edb.Event) error {
 		// TODO: we can easility recover from previous download sessions by checking:
 		// 1. wether the max number of items did non change.
 		// 2. if yes, start counting from the last item received.
 		switch e.Action {
 		case "set_query":
-			var err error
 			query = e.Data[0]
-			max, err = strconv.Atoi(e.Data[1])
-			if err != nil {
-				return fmt.Errorf("parse maximum literature count: %w", err)
-			}
+			return nil
 		default:
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
+	}
+	if query == "" {
+		return nil, fmt.Errorf("query not found within edb. Did you run lit-max?")
 	}
 
-	client := scopus.NewClient(scopusKey)
-	next := lit.GetLiterature(context.Background(), client, lit.Request{Query: query})
+	// We might read the max value from edb set_query as well. It might
+	// have changed in the meanwhile though!
+	max, err := lit.GetMaxLiterature(context.Background(), client, lit.Request{
+		Query: query,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return tea.NewProgram(model{
-		db:     db,
-		client: client,
-		query:  query,
-		// We get an initial maximum publication count from lit-max
-		// stored output. In the meanwhile, this count may have
-		// changed.
-		max:      next.Total,
-		next:     next,
+		db:       db,
+		client:   client,
+		query:    query,
+		max:      max,
+		next:     lit.NewPublicationChan(max, 0),
 		progress: progress.NewModel(progress.WithDefaultGradient()),
 		help:     help.NewModel(),
-	}).Start()
+	}, opts...), nil
+}
+
+func Main(db *edb.Db, client lit.Library, opts ...tea.ProgramOption) error {
+	p, err := Program(db, client, opts...)
+	if err != nil {
+		return err
+	}
+	return p.Start()
 }
 
 func main() {
 	flag.Parse()
 
-	if err := Main(); err != nil {
+	db, err := edb.Open(*edbPath)
+	if err != nil {
+		log.Fatale(err)
+	}
+
+	client := scopus.NewClient(scopusKey)
+
+	err = Main(db, client, tea.WithoutCatchPanics())
+	db.Close()
+
+	if err != nil {
 		log.Fatale(err)
 	}
 }
