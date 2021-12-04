@@ -2,13 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"os"
 	"testing"
-	//"math"
-	"context"
-	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,7 +17,6 @@ import (
 )
 
 type MockClient struct {
-	t      *testing.T
 	maxLit int
 
 	maxLitErr error
@@ -36,15 +35,13 @@ func (c *MockClient) GetRateLimit() time.Duration {
 }
 
 func (c *MockClient) GetLiterature(ctx context.Context, r lit.Request) (lit.Response, error) {
-	c.t.Logf("mock: get literature called: %+v", r)
-	c.t.Logf("mock: get literature called (error): %v", c.litErr)
 	start := r.Page * r.PerPage
 	size := c.maxLit - start
 	if size < 0 {
 		return lit.Response{}, fmt.Errorf("request out of bounds: %d over %d", start, c.maxLit)
 	}
-	if size > r.MaxPage {
-		size = r.MaxPage
+	if size > r.PerPage {
+		size = r.PerPage
 	}
 
 	pubs := make([]lit.Publication, size)
@@ -120,7 +117,6 @@ func TestMainExitWithMaxLitErr(t *testing.T) {
 	maxLit := 2
 	maxLitErr := fmt.Errorf("max lit error: unable to do it")
 	client := &MockClient{
-		t:         t,
 		maxLit:    maxLit,
 		maxLitErr: maxLitErr,
 	}
@@ -141,7 +137,6 @@ func TestMainExitWithLitErr(t *testing.T) {
 	maxLit := 76
 	litErr := fmt.Errorf("lit error: unable to do it")
 	client := &MockClient{
-		t:      t,
 		maxLit: maxLit,
 		litErr: litErr,
 	}
@@ -151,7 +146,7 @@ func TestMainExitWithLitErr(t *testing.T) {
 	t.Run("", func(t *testing.T) {
 		p, _ := mockProgram(t, db, client)
 		go func() {
-			<-time.After(100*time.Millisecond + time.Duration(maxLit)/client.GetRateLimit())
+			<-time.After(client.timeout())
 			p.Quit()
 		}()
 		i, err := p.StartReturningModel()
@@ -168,55 +163,43 @@ func TestMainExitWithLitErr(t *testing.T) {
 	})
 }
 
-/*
-func TestMain(t *testing.T) {
-	client := &MockClient{
-		t: t,
-		maxCC: 4,
-		maxLit: 100 * 4,
-	}
-
-	db := edb.New(f)
-	if err := db.Append(&edb.Event{
-		Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
-		Issuer: "testing",
-		Scope:  "lit",
-		Action: "set_query",
-		Data:   []string{"a query", fmt.Sprintf("%d", client.maxLit)},
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	inputR, inputW := io.Pipe()
-	outputR, outputW := io.Pipe()
-	p, err := Program(db, client,
-		tea.WithInput(inputR),
-		tea.WithOutput(outputW),
-		tea.WithoutRenderer(),
-		tea.WithoutCatchPanics(),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		<-time.After(1*time.Second)
-		fmt.Fprintf(inputW, "q")
-	}()
-	go func() {
-		io.Copy(io.Discard, outputR)
-	}()
-
-	if _, err := p.StartReturningModel(); err != nil {
-		t.Fatal(err)
-	}
-
-	if client.pubsCount != client.maxLit {
-		t.Fatalf("pubs count: have %d, want %d", client.pubsCount, client.maxLit)
-	}
-	expectedRequestCount := int(math.Ceil(float64(client.maxLit) / float64(lit.DefaultPerPage)))
-	if client.requestCount != expectedRequestCount {
-		t.Fatalf("request count: have %d, want %d", client.pubsCount, expectedRequestCount)
-	}
+func (c MockClient) timeout() time.Duration {
+	ms := float64(c.maxLit) / float64(c.GetRateLimit().Milliseconds())
+	return time.Millisecond * time.Duration(int(ms)*10)
 }
-*/
+
+func TestMain(t *testing.T) {
+	maxLit := 776
+	client := &MockClient{
+		maxLit: maxLit,
+	}
+	db, cleanup := mockDb("some q", maxLit)
+	defer cleanup()
+
+	t.Run("", func(t *testing.T) {
+		p, _ := mockProgram(t, db, client)
+		go func() {
+			<-time.After(client.timeout())
+			p.Quit()
+		}()
+		i, err := p.StartReturningModel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := i.(model)
+		if !m.done {
+			t.Fatalf("program is not done yet")
+		}
+		if m.err != nil {
+			t.Fatal(err)
+		}
+
+		if client.pubsCount != client.maxLit {
+			t.Fatalf("pubs count: have %d, want %d", client.pubsCount, client.maxLit)
+		}
+		expectedRequestCount := int(math.Ceil(float64(client.maxLit) / float64(lit.DefaultPerPage)))
+		if client.requestCount != expectedRequestCount {
+			t.Fatalf("request count: have %d, want %d", client.pubsCount, expectedRequestCount)
+		}
+	})
+}

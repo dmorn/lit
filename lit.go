@@ -158,18 +158,29 @@ func NewPublicationChan(max, queueLen int) *PublicationChan {
 type Request struct {
 	Query string
 
-	Page    int
-	PerPage int
-	MaxPage int
+	Page       int
+	PerPage    int
+	MaxResults int
+}
+
+func (r Request) RoundsNeeded() int {
+	return int(math.Ceil(float64(r.MaxResults) / float64(r.PerPage)))
 }
 
 func (r Request) CloneWithPage(p int) Request {
-	return Request{
-		Query:   r.Query,
-		Page:    p,
-		PerPage: r.PerPage,
-		MaxPage: r.MaxPage,
+	o := new(Request)
+	*o = r
+	o.Page = p
+	return *o
+}
+
+func (r Request) String() string {
+	from := r.Page * r.PerPage
+	to := from + r.PerPage
+	if to > r.MaxResults {
+		to = r.MaxResults
 	}
+	return fmt.Sprintf("{q=%q page=%d from=%d to=%d max=%d}", r.Query, r.Page, from, to, r.MaxResults)
 }
 
 type Response struct {
@@ -194,8 +205,8 @@ type Library interface {
 }
 
 func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
-	requests := make(chan Request, req.MaxPage)
-	for i := 0; i < req.MaxPage; i++ {
+	requests := make(chan Request, req.RoundsNeeded())
+	for i := 0; i < req.RoundsNeeded(); i++ {
 		requests <- req.CloneWithPage(i)
 	}
 	close(requests)
@@ -224,7 +235,7 @@ func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, r
 	if req.PerPage <= 0 {
 		req.PerPage = DefaultPerPage
 	}
-	req.MaxPage = int(math.Ceil(float64(pubChan.Max()) / float64(req.PerPage)))
+	req.MaxResults = pubChan.Max()
 
 	searchLoop(ctx, pubChan, lib, req)
 }
