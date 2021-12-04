@@ -143,17 +143,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	bodyStyle    = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	titleStyle   = bodyStyle.Copy().Bold(true).Blink(true)
-	errorStyle   = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
-	successStyle = bodyStyle.Copy().Foreground(lipgloss.Color("#EE6FF8")).Bold(true)
-	helpStyle    = bodyStyle.Copy()
+	bodyStyle    = lipgloss.NewStyle().Width(MaxWidth).Margin(1)
+	titleStyle   = lipgloss.NewStyle().Bold(true).Blink(true).MarginBottom(1)
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#EE6FF8")).Bold(true)
+	helpStyle    = lipgloss.NewStyle()
 )
 
 func (m model) View() string {
 	title := fmt.Sprintf("Downloading %q (%d results) from %s...", m.query, m.max, m.client.GetName())
 	titleView := titleStyle.Render(title)
-	progressView := bodyStyle.Render(m.progress.ViewAs(float64(m.received) / float64(m.max)))
+	progressView := m.progress.ViewAs(float64(m.received) / float64(m.max))
 	helpView := helpStyle.Render(m.help.View(keys))
 
 	var statusView string
@@ -163,12 +163,12 @@ func (m model) View() string {
 		statusView = successStyle.Render("Done!")
 	}
 
-	return fmt.Sprintf("%s\n%s\n%s\n%s\n",
+	return bodyStyle.Render(fmt.Sprintf("%s\n%s\n%s\n%s\n",
 		titleView,
 		progressView,
 		statusView,
 		helpView,
-	)
+	))
 }
 
 func Program(db *edb.Db, client lit.Library, opts ...tea.ProgramOption) (*tea.Program, error) {
