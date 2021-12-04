@@ -147,11 +147,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var (
 	bodyStyle      = lipgloss.NewStyle().Width(MaxWidth).Margin(Margin)
-	resultStyle    = bodyStyle.Copy()
-	errorStyle     = bodyStyle.Copy().Foreground(lipgloss.Color("5"))
-	helpStyle      = bodyStyle.Copy()
-	inputStyle     = bodyStyle.Copy()
-	searchingStyle = bodyStyle.Copy().Foreground(lipgloss.AdaptiveColor{
+	resultStyle    = lipgloss.NewStyle()
+	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	helpStyle      = lipgloss.NewStyle()
+	inputStyle     = lipgloss.NewStyle().MarginBottom(1)
+	searchingStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 		Light: "#909090",
 		Dark:  "#626262",
 	})
@@ -171,11 +171,11 @@ func (m model) View() string {
 	textView := inputStyle.Render(m.textInput.View())
 	helpView := helpStyle.Render(m.help.View(keys))
 
-	return fmt.Sprintf("%s\n%s\n%s\n",
+	return bodyStyle.Render(fmt.Sprintf("%s\n%s\n%s\n",
 		textView,
-		m.queryView(),
+		lipgloss.NewStyle().MarginBottom(1).Render(m.queryView()),
 		helpView,
-	)
+	))
 }
 
 func Main() error {
