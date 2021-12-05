@@ -22,3 +22,7 @@ have not been tampered, but this is going to happen only if the tool exits the
 
 For feature requests and everything else, open an issue.
 
+# Recovering
+The program's state is constructed from its .edb file, by default lit.edb. If
+something goes wrong, users are invited to open it up and edit its contents for
+now, for example by deleting one or more reviews.
