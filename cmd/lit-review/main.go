@@ -293,7 +293,7 @@ func (m model) titleView() string {
 
 func (m model) creatorView() string {
 	p := m.pubs[m.cursor]
-	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year, p.BibId()))
+	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year(), p.BibId()))
 }
 
 func (m model) statusView() string {
