@@ -89,6 +89,8 @@ type model struct {
 	query  string
 	client lit.Library
 
+	style style
+
 	cursor int
 	pubs   []lit.Publication
 
@@ -245,7 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = nil
 		return m, getAbstract(m.client, m.cursor, m.pubs[m.cursor])
 	case quitMsg:
-		// TODO: if an error occurs here we won't catch it.
+		// NOTE: if an error occurs here we won't catch it.
 		m.db.Append(&edb.Event{
 			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
 			Issuer: "reviewer",
@@ -258,70 +260,109 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-var (
-	bodyStyle     = lipgloss.NewStyle().Width(MaxWidth)
-	titleStyle    = lipgloss.NewStyle().Bold(true).Height(1)
-	abstractStyle = lipgloss.NewStyle()
-	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	helpStyle     = lipgloss.NewStyle()
-	statsStyle    = lipgloss.NewStyle()
+type style struct {
+	body lipgloss.Style
+	bold lipgloss.Style
 
-	rejectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true)
-	acceptedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#EE6FF8")).Bold(true)
-	todoStyle     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+	abstract lipgloss.Style
+	err      lipgloss.Style
+
+	rejected lipgloss.Style
+	accepted lipgloss.Style
+	todo     lipgloss.Style
+}
+
+var defaultStyle = style{
+	body: lipgloss.NewStyle().Width(MaxWidth).Margin(1),
+	bold: lipgloss.NewStyle().Bold(true),
+
+	abstract: lipgloss.NewStyle(),
+	err:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")), // TODO: change this color
+
+	rejected: lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true),
+	accepted: lipgloss.NewStyle().Foreground(lipgloss.Color("#EE6FF8")).Bold(true),
+	todo: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 		Light: "#909090",
 		Dark:  "#626262",
-	}).Bold(true)
-)
+	}).Bold(true),
+}
+
+func (m model) titleView() string {
+	return m.style.bold.Height(1).Render(fmt.Sprintf("#%d: %s", m.cursor+1, m.pubs[m.cursor].Title))
+}
+
+func (m model) creatorView() string {
+	p := m.pubs[m.cursor]
+	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year, p.BibId()))
+}
 
 func (m model) statusView() string {
 	rev := m.pubs[m.cursor].Review
+
 	var statusView string
 	switch {
 	case rev == nil:
-		statusView = todoStyle.Render("to be reviewed")
+		statusView = m.style.todo.Render("to be reviewed")
 	case rev.IsAccepted && rev.IsHighlighted:
-		statusView = acceptedStyle.Render("accepted (+highlight)")
+		statusView = m.style.accepted.Render("accepted (+highlight)")
 	case rev.IsAccepted:
-		statusView = acceptedStyle.Render("accepted")
+		statusView = m.style.accepted.Render("accepted")
 	default:
-		statusView = rejectedStyle.Render("rejected: " + rev.RejectReason)
+		statusView = m.style.rejected.Render("rejected: " + rev.RejectReason)
 	}
 	return statusView
 }
 
-func (m model) View() string {
+func (m model) progressView() string {
+	return m.progress.ViewAs(float64(m.acceptedCount+m.rejectedCount) / float64(len(m.pubs)))
+}
+
+func (m model) abstractView() string {
 	p := m.pubs[m.cursor]
-
-	titleView := titleStyle.Render(fmt.Sprintf("#%d: %s", m.cursor+1, p.Title))
-	statusView := m.statusView()
-	progressView := m.progress.ViewAs(float64(m.acceptedCount+m.rejectedCount) / float64(len(m.pubs)))
-
-	abstractView := todoStyle.Render("downloading abstract...")
+	abstractView := m.style.todo.Render("downloading abstract...")
 	switch {
 	case m.err != nil:
-		abstractView = errorStyle.Render(fmt.Sprintf("error: %v", m.err))
+		abstractView = m.style.err.Render(fmt.Sprintf("error: %v", m.err))
 	case p.Abstract != nil:
-		abstractView = abstractStyle.Render(p.Abstract.GetText())
+		abstractView = m.style.abstract.Render(p.Abstract.GetText())
 	}
-	abstractView = lipgloss.NewStyle().MarginTop(1).MarginBottom(1).Render(abstractView)
+	return abstractView
+}
 
-	// Add review status view
-
-	statsView := statsStyle.Render(fmt.Sprintf("[total=%d accepted=%d rejected=%d]",
+func (m model) statsView() string {
+	return m.style.abstract.Render(fmt.Sprintf("[total=%d todo=%d accepted=%d rejected=%d]",
 		len(m.pubs),
+		len(m.pubs)-(m.acceptedCount+m.rejectedCount),
 		m.acceptedCount,
 		m.rejectedCount,
 	))
-	helpView := helpStyle.Render(m.help.View(keys))
+}
 
-	return lipgloss.NewStyle().Margin(1).Width(MaxWidth).Render(fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n",
-		titleView,
-		statusView,
-		progressView,
-		abstractView,
-		statsView,
-		helpView,
+func (m model) helpView() string {
+	return m.help.View(keys)
+}
+
+func (m model) View() string {
+	header := lipgloss.NewStyle().Render(fmt.Sprintf("%s\n%s\n%s",
+		m.titleView(),
+		m.creatorView(),
+		m.statusView(),
+	))
+
+	progress := lipgloss.NewStyle().MarginBottom(1).MarginTop(1).Render(
+		m.progressView(),
+	)
+
+	footer := lipgloss.NewStyle().MarginTop(1).Render(fmt.Sprintf("%s\n%s",
+		m.statsView(),
+		m.helpView(),
+	))
+
+	return m.style.body.Render(fmt.Sprintf("%s\n%s\n%s\n%s",
+		header,
+		progress,
+		m.abstractView(),
+		footer,
 	))
 }
 
@@ -380,6 +421,7 @@ func Main() error {
 	return tea.NewProgram(model{
 		db:            db,
 		client:        scopus.NewClient(scopusKey),
+		style:         defaultStyle,
 		cursor:        cursor,
 		acceptedCount: acceptedCount,
 		rejectedCount: rejectedCount,
