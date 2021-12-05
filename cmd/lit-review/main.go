@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jecoz/edb"
@@ -27,61 +28,91 @@ var (
 	edbPath = flag.String("edb", "lit.edb", "Event database file. Everything will be stored here.")
 )
 
-const (
-	MaxWidth = 120
-	Margin   = 1
-)
+const MaxWidth = 120
 
-type keyMap struct {
-	Left      key.Binding
-	Right     key.Binding
+type insertMode struct {
+	Enter  key.Binding
+	Cancel key.Binding
+}
+
+func (k insertMode) ShortHelp() []key.Binding {
+	return []key.Binding{k.Enter, k.Cancel}
+}
+
+func (k insertMode) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		k.ShortHelp(),
+		{},
+	}
+}
+
+func newInsertMode() insertMode {
+	return insertMode{
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "confirm reject reason"),
+		),
+		Cancel: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "exit reject mode"),
+		),
+	}
+}
+
+type normalMode struct {
+	Left  key.Binding
+	Right key.Binding
+
 	Accept    key.Binding
 	Highlight key.Binding
 	Reject    key.Binding
-	Help      key.Binding
-	Quit      key.Binding
+
+	Help key.Binding
+	Quit key.Binding
 }
 
-func (k keyMap) ShortHelp() []key.Binding {
+func (k normalMode) ShortHelp() []key.Binding {
 	return []key.Binding{k.Help, k.Quit}
 }
 
-func (k keyMap) FullHelp() [][]key.Binding {
+func (k normalMode) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject},
 		{k.Help, k.Quit},
 	}
 }
 
-var keys = keyMap{
-	Left: key.NewBinding(
-		key.WithKeys("left", "h"),
-		key.WithHelp("←/h", "move left"),
-	),
-	Right: key.NewBinding(
-		key.WithKeys("right", "l"),
-		key.WithHelp("→/l", "move right"),
-	),
-	Accept: key.NewBinding(
-		key.WithKeys("a"),
-		key.WithHelp("a", "accept publication"),
-	),
-	Highlight: key.NewBinding(
-		key.WithKeys("A"),
-		key.WithHelp("A", "accept publication, with highlight"),
-	),
-	Reject: key.NewBinding(
-		key.WithKeys("r"),
-		key.WithHelp("r", "reject publication"),
-	),
-	Help: key.NewBinding(
-		key.WithKeys("H", "?"),
-		key.WithHelp("?/H", "toggle help"),
-	),
-	Quit: key.NewBinding(
-		key.WithKeys("q", "esc", "ctrl+c"),
-		key.WithHelp("q", "quit"),
-	),
+func newNormalMode() normalMode {
+	return normalMode{
+		Help: key.NewBinding(
+			key.WithKeys("H", "?"),
+			key.WithHelp("?/H", "toggle help"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("q", "ctrl+c"),
+			key.WithHelp("q", "quit"),
+		),
+		Left: key.NewBinding(
+			key.WithKeys("left", "h"),
+			key.WithHelp("←/h", "move left"),
+		),
+		Right: key.NewBinding(
+			key.WithKeys("right", "l"),
+			key.WithHelp("→/l", "move right"),
+		),
+		Accept: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "accept publication"),
+		),
+		Highlight: key.NewBinding(
+			key.WithKeys("A"),
+			key.WithHelp("A", "accept publication, with highlight"),
+		),
+		Reject: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reject publication (providing a reason)"),
+		),
+	}
 }
 
 type model struct {
@@ -89,17 +120,21 @@ type model struct {
 	query  string
 	client lit.Library
 
-	style style
+	normal normalMode
+	insert insertMode
+	style  style
 
 	cursor int
 	pubs   []lit.Publication
 
+	rejecting     bool
 	rejectedCount int
 	acceptedCount int
 	err           error
 
-	help     help.Model
-	progress progress.Model
+	help      help.Model
+	progress  progress.Model
+	textInput textinput.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -162,51 +197,89 @@ func getAbstract(client lit.Library, cursor int, p lit.Publication) tea.Cmd {
 
 type quitMsg struct{}
 
+func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := m.normal
+	switch {
+	case key.Matches(msg, keys.Quit):
+		return m, func() tea.Msg {
+			return quitMsg{}
+		}
+	case key.Matches(msg, keys.Help):
+		m.help.ShowAll = !m.help.ShowAll
+	case key.Matches(msg, keys.Left):
+		return m, moveCursor(m.cursor - 1)
+	case key.Matches(msg, keys.Right):
+		return m, moveCursor(m.cursor + 1)
+	case key.Matches(msg, keys.Accept):
+		return m, tea.Sequentially(
+			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+				IsAccepted: true,
+			}),
+			moveCursor(m.cursor+1),
+		)
+	case key.Matches(msg, keys.Highlight):
+		return m, tea.Sequentially(
+			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+				IsAccepted:    true,
+				IsHighlighted: true,
+			}),
+			moveCursor(m.cursor+1),
+		)
+	case key.Matches(msg, keys.Reject):
+		m.textInput.Focus()
+		m.rejecting = true
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := m.insert
+	switch {
+	case key.Matches(msg, keys.Cancel):
+		m.rejecting = false
+		return m, nil
+	case key.Matches(msg, keys.Enter):
+		if len(m.textInput.Value()) == 0 {
+			// TODO: tell the user?
+			return m, nil
+		}
+		defer func() {
+			m.textInput.Reset()
+			m.textInput.Blur()
+		}()
+		m.rejecting = false
+		return m, tea.Sequentially(
+			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+				IsAccepted:   false,
+				RejectReason: m.textInput.Value(),
+			}),
+			moveCursor(m.cursor+1),
+		)
+	}
+
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.rejecting {
+		return m.handleKeyInsert(msg)
+	}
+	return m.handleKeyNormal(msg)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.help.Width = msg.Width
-		m.progress.Width = msg.Width - Margin*2 - 4
+		m.progress.Width = msg.Width - 1*2 - 4
 		if m.progress.Width > MaxWidth {
 			m.progress.Width = MaxWidth
 		}
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, keys.Quit):
-			return m, func() tea.Msg {
-				return quitMsg{}
-			}
-		case key.Matches(msg, keys.Help):
-			m.help.ShowAll = !m.help.ShowAll
-		case key.Matches(msg, keys.Left):
-			return m, moveCursor(m.cursor - 1)
-		case key.Matches(msg, keys.Right):
-			return m, moveCursor(m.cursor + 1)
-		case key.Matches(msg, keys.Accept):
-			return m, tea.Sequentially(
-				makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-					IsAccepted: true,
-				}),
-				moveCursor(m.cursor+1),
-			)
-		case key.Matches(msg, keys.Highlight):
-			return m, tea.Sequentially(
-				makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-					IsAccepted:    true,
-					IsHighlighted: true,
-				}),
-				moveCursor(m.cursor+1),
-			)
-		case key.Matches(msg, keys.Reject):
-			// TODO: promt the user for a reason, then make the review.
-			return m, tea.Sequentially(
-				makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-					IsAccepted:   false,
-					RejectReason: "rejected with no particular reason",
-				}),
-				moveCursor(m.cursor+1),
-			)
-		}
+		return m.handleKey(msg)
 	case errMsg:
 		m.err = msg
 		return m, nil
@@ -297,6 +370,10 @@ func (m model) creatorView() string {
 }
 
 func (m model) statusView() string {
+	if m.rejecting {
+		return m.textInput.View()
+	}
+
 	rev := m.pubs[m.cursor].Review
 
 	var statusView string
@@ -339,7 +416,11 @@ func (m model) statsView() string {
 }
 
 func (m model) helpView() string {
-	return m.help.View(keys)
+	if m.rejecting {
+		return m.help.View(m.insert)
+	}
+
+	return m.help.View(m.normal)
 }
 
 func (m model) View() string {
@@ -418,10 +499,16 @@ func Main() error {
 		return err
 	}
 
+	ti := textinput.NewModel()
+	ti.Placeholder = "Rejected due to..."
+	ti.CharLimit = 256
+
 	return tea.NewProgram(model{
 		db:            db,
 		client:        scopus.NewClient(scopusKey),
 		style:         defaultStyle,
+		insert:        newInsertMode(),
+		normal:        newNormalMode(),
 		cursor:        cursor,
 		acceptedCount: acceptedCount,
 		rejectedCount: rejectedCount,
@@ -429,6 +516,7 @@ func Main() error {
 		pubs:          pubs,
 		help:          help.NewModel(),
 		progress:      progress.NewModel(progress.WithDefaultGradient()),
+		textInput:     ti,
 	}).Start()
 }
 
