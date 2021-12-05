@@ -153,7 +153,7 @@ var (
 func (m model) View() string {
 	title := fmt.Sprintf("Downloading %q (%d results) from %s...", m.query, m.max, m.client.GetName())
 	titleView := titleStyle.Render(title)
-	progressView := m.progress.ViewAs(float64(m.received) / float64(m.max))
+	progressView := lipgloss.NewStyle().MarginBottom(1).Render(m.progress.ViewAs(float64(m.received) / float64(m.max)))
 	helpView := helpStyle.Render(m.help.View(keys))
 
 	var statusView string
