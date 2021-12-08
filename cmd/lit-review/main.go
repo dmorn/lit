@@ -289,12 +289,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = err
 			return m, nil
 		}
+		ref := m.client.ToBibTeX(msg.pub)
 		if err := m.db.Append(&edb.Event{
 			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
 			Issuer: "reviewer",
 			Scope:  "lit",
 			Action: "update_lit",
-			Data:   []string{msg.pub.BibId(), data, fmt.Sprintf("%d", msg.cursor)},
+			Data:   []string{ref.CiteKey(), data, fmt.Sprintf("%d", msg.cursor)},
 		}); err != nil {
 			m.err = err
 			return m, nil
@@ -366,7 +367,8 @@ func (m model) titleView() string {
 
 func (m model) creatorView() string {
 	p := m.pubs[m.cursor]
-	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year(), p.BibId()))
+	ref := m.client.ToBibTeX(p)
+	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year(), ref.CiteKey()))
 }
 
 func (m model) statusView() string {

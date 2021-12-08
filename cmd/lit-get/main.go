@@ -127,12 +127,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = err
 			return m, nil
 		}
+		ref := m.client.ToBibTeX(msg.pub)
+
 		if err := m.db.Append(&edb.Event{
 			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
 			Issuer: m.client.GetName(),
 			Scope:  "lit",
 			Action: "add_lit",
-			Data:   []string{msg.pub.BibId(), data},
+			Data:   []string{ref.CiteKey(), data},
 		}); err != nil {
 			m.err = err
 			return m, nil
@@ -193,7 +195,7 @@ func Program(db *edb.Db, client lit.Library, opts ...tea.ProgramOption) (*tea.Pr
 
 	// We might read the max value from edb set_query as well. It might
 	// have changed in the meanwhile though!
-	max, err := lit.GetMaxLiterature(context.Background(), client, lit.Request{
+	max, err := client.GetMaxLiterature(context.Background(), lit.Request{
 		Query: query,
 	})
 	if err != nil {

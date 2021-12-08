@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jecoz/edb"
 	"github.com/jecoz/lit"
+	"github.com/jecoz/lit/bibtex"
 )
 
 type MockClient struct {
@@ -24,6 +25,10 @@ type MockClient struct {
 
 	requestCount int
 	pubsCount    int
+}
+
+func (c *MockClient) DefaultPerPage() int {
+	return 25
 }
 
 func (c *MockClient) GetName() string {
@@ -47,12 +52,9 @@ func (c *MockClient) GetLiterature(ctx context.Context, r lit.Request) (lit.Resp
 	pubs := make([]lit.Publication, size)
 	for i := 0; i < size; i++ {
 		pubs[i] = lit.Publication{
-			Title:        fmt.Sprintf("pub #%d", i+start),
-			Eid:          "eid",
-			Issn:         "issn",
-			CoverDate:    time.Now(),
-			Creator:      "Ciuck Taylor",
-			LinkAbstract: "missing.com",
+			Title:     fmt.Sprintf("pub #%d", i+start),
+			CoverDate: time.Now(),
+			Creator:   "Ciuck Taylor",
 		}
 	}
 
@@ -114,6 +116,7 @@ func mockProgram(t *testing.T, db *edb.Db, client lit.Library) (*tea.Program, io
 }
 
 func TestMainExitWithMaxLitErr(t *testing.T) {
+	t.Parallel()
 	maxLit := 2
 	maxLitErr := fmt.Errorf("max lit error: unable to do it")
 	client := &MockClient{
@@ -134,6 +137,7 @@ func TestMainExitWithMaxLitErr(t *testing.T) {
 }
 
 func TestMainExitWithLitErr(t *testing.T) {
+	t.Parallel()
 	maxLit := 76
 	litErr := fmt.Errorf("lit error: unable to do it")
 	client := &MockClient{
@@ -168,7 +172,18 @@ func (c MockClient) timeout() time.Duration {
 	return time.Millisecond * time.Duration(int(ms)*10)
 }
 
+func (c MockClient) ToBibTeX(p lit.Publication) bibtex.Reference {
+	return bibtex.Misc{
+		Entry: bibtex.Entry{
+			Title:  p.Title,
+			Author: p.Creator,
+			Year:   p.CoverDate.Year(),
+		},
+	}
+}
+
 func TestMain(t *testing.T) {
+	t.Parallel()
 	maxLit := 776
 	client := &MockClient{
 		maxLit: maxLit,
@@ -197,7 +212,7 @@ func TestMain(t *testing.T) {
 		if client.pubsCount != client.maxLit {
 			t.Fatalf("pubs count: have %d, want %d", client.pubsCount, client.maxLit)
 		}
-		expectedRequestCount := int(math.Ceil(float64(client.maxLit) / float64(lit.DefaultPerPage)))
+		expectedRequestCount := int(math.Ceil(float64(client.maxLit) / float64(client.DefaultPerPage())))
 		if client.requestCount != expectedRequestCount {
 			t.Fatalf("request count: have %d, want %d", client.pubsCount, expectedRequestCount)
 		}

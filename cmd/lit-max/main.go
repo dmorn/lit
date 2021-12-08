@@ -77,7 +77,7 @@ func getMaxLiterature(client lit.Library, q string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 
-		max, err := lit.GetMaxLiterature(ctx, client, lit.Request{
+		max, err := client.GetMaxLiterature(ctx, lit.Request{
 			Query: q,
 		})
 		if err != nil {

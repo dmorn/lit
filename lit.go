@@ -10,13 +10,9 @@ import (
 	"math"
 	"strings"
 	"time"
-	"unicode"
 
+	"github.com/jecoz/lit/bibtex"
 	"golang.org/x/sync/errgroup"
-)
-
-const (
-	DefaultPerPage = 25
 )
 
 type Abstract struct {
@@ -35,43 +31,14 @@ type Review struct {
 
 type Publication struct {
 	Title     string    `json:"title"`
-	Eid       string    `json:"eid"`
-	Issn      string    `json:"issn"`
 	CoverDate time.Time `json:"cover_date"`
 	Creator   string    `json:"creator"`
 
-	LinkAbstract string `json:"link_abstract"`
-
-	Aggregation string `json:"prism:aggregationType"`
+	// Misc stuff used by clients to accomplish Library interface.
+	Values map[string]string `json:"values"`
 
 	*Abstract `json:"abstract,omitempty"`
 	*Review   `json:"review,omitempty"`
-}
-
-func takeMaxRunes(s string, n int) string {
-	s = strings.TrimSpace(s)
-	r := strings.NewReader(s)
-	take := 0
-	for i := 0; i < n; i++ {
-		ru, size, err := r.ReadRune()
-		if err != nil || !unicode.IsLetter(ru) {
-			break
-		}
-		take += size
-	}
-	return string([]byte(s)[:take])
-}
-
-func (p Publication) CreatorShort() string {
-	return takeMaxRunes(p.Creator, 3)
-}
-
-func (p Publication) TitleShort() string {
-	return takeMaxRunes(p.Title, 5)
-}
-
-func (p Publication) BibId() string {
-	return fmt.Sprintf("%s%d%s", p.CreatorShort(), p.CoverDate.Year(), p.TitleShort())
 }
 
 func (p Publication) Marshal() (string, error) {
@@ -193,9 +160,13 @@ func (r Response) IsEmpty() bool {
 type Library interface {
 	GetName() string
 	GetRateLimit() time.Duration
+	DefaultPerPage() int
+
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
 	GetAbstract(context.Context, Publication) (Abstract, error)
+
+	ToBibTeX(Publication) bibtex.Reference
 }
 
 func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
@@ -226,14 +197,10 @@ func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req 
 }
 
 func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
-	if req.PerPage <= 0 {
-		req.PerPage = DefaultPerPage
-	}
 	req.MaxResults = pubChan.Max()
+	if req.PerPage <= 0 {
+		req.PerPage = lib.DefaultPerPage()
+	}
 
 	searchLoop(ctx, pubChan, lib, req)
-}
-
-func GetMaxLiterature(ctx context.Context, lib Library, req Request) (int, error) {
-	return lib.GetMaxLiterature(ctx, req)
 }

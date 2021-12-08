@@ -12,9 +12,11 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jecoz/lit"
+	"github.com/jecoz/lit/bibtex"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -23,9 +25,28 @@ const (
 	abstractEndpoint = "https://api.elsevier.com/content/abstract/eid/%s"
 )
 
+const (
+	KeyLinkAbstract    = "link_abstract"
+	KeyEid             = "eid"
+	KeyIssn            = "issn"
+	KeyDOI             = "doi"
+	KeyPageRange       = "page_range"
+	KeyVolume          = "volume"
+	KeyPublicationName = "publication_name"
+	KeyArticleNumber   = "article_number"
+	KeyAggregationType = "aggregation_type"
+	KeySubtype         = "subtype"
+	KeyCitedByCount    = "cited_by_count"
+	KeyAffiliation     = "affiliation"
+)
+
 type Client struct {
 	apiKey     string
 	httpClient *http.Client
+}
+
+func (c Client) DefaultPerPage() int {
+	return 25
 }
 
 func newSearchRequest(ctx context.Context, apiKey string, src lit.Request) *http.Request {
@@ -64,13 +85,29 @@ type openSearchLink struct {
 	Ref string `json:"@href"`
 }
 
+type openAffiliation struct {
+	Name    string `json:"affilname"`
+	City    string `json:"affiliation-city"`
+	Country string `json:"affiliation-country"`
+}
+
 type openSearchEntry struct {
-	Title        string           `json:"dc:title"`
-	Eid          string           `json:"eid"`
-	CoverDateRaw string           `json:"prism:coverDate"`
-	Creator      string           `json:"dc:creator"`
-	Issn         string           `json:"prism:issn"`
-	Links        []openSearchLink `json:"link"`
+	Title           string `json:"dc:title"`
+	Eid             string `json:"eid"`
+	CoverDateRaw    string `json:"prism:coverDate"`
+	Creator         string `json:"dc:creator"`
+	Issn            string `json:"prism:issn"`
+	DOI             string `json:"prism:doi"`
+	PageRange       string `json:"prism:pageRange"`
+	Volume          string `json:"prism:volume"`
+	PublicationName string `json:"prism:publicationName"`
+	ArticleNumber   string `json:"article-number"`
+	AggregationType string `json:"prism:aggregationType"`
+	Subtype         string `json:"subtype"`
+	CitedByCount    string `json:"citedby-count"`
+
+	Links        []openSearchLink  `json:"link"`
+	Affiliations []openAffiliation `json:"affiliation"`
 }
 
 func (e openSearchEntry) CoverDate() (time.Time, error) {
@@ -79,6 +116,53 @@ func (e openSearchEntry) CoverDate() (time.Time, error) {
 		return time.Time{}, fmt.Errorf("parse cover date: %w", err)
 	}
 	return t, nil
+}
+
+func (e openSearchEntry) Affiliation() string {
+	affiliations := []string{}
+	for _, v := range e.Affiliations {
+		fields := []string{
+			v.Name,
+			v.City,
+			v.Country,
+		}
+		stripped := make([]string, 0, len(fields))
+		for _, f := range fields {
+			if len(f) > 0 {
+				stripped = append(stripped, f)
+			}
+		}
+		if len(stripped) == 0 {
+			continue
+		}
+		affiliations = append(affiliations, strings.Join(stripped, ", "))
+	}
+	if len(affiliations) == 0 {
+		return ""
+	}
+	return strings.Join(affiliations, "; ")
+}
+
+func (e openSearchEntry) Values() map[string]string {
+	links := make(map[string]string)
+	for _, v := range e.Links {
+		links[v.Tag] = v.Ref
+	}
+
+	return map[string]string{
+		KeyLinkAbstract:    links["scopus"],
+		KeyEid:             e.Eid,
+		KeyIssn:            e.Issn,
+		KeyDOI:             e.DOI,
+		KeyPageRange:       e.PageRange,
+		KeyVolume:          e.Volume,
+		KeyPublicationName: e.PublicationName,
+		KeyArticleNumber:   e.ArticleNumber,
+		KeyAggregationType: e.AggregationType,
+		KeySubtype:         e.Subtype,
+		KeyCitedByCount:    e.CitedByCount,
+		KeyAffiliation:     e.Affiliation(),
+	}
 }
 
 type openSearchResult struct {
@@ -93,17 +177,12 @@ func mapPublications(entries []openSearchEntry) ([]lit.Publication, error) {
 		if err != nil {
 			return pubs, fmt.Errorf("search result %d, %s: %w", i, v.Eid, err)
 		}
-		links := make(map[string]string)
-		for _, v := range v.Links {
-			links[v.Tag] = v.Ref
-		}
+
 		pubs[i] = lit.Publication{
-			Title:        v.Title,
-			Eid:          v.Eid,
-			Issn:         v.Issn,
-			CoverDate:    coverDate,
-			Creator:      v.Creator,
-			LinkAbstract: links["scopus"],
+			Title:     v.Title,
+			CoverDate: coverDate,
+			Creator:   v.Creator,
+			Values:    v.Values(),
 		}
 	}
 	return pubs, nil
@@ -232,7 +311,7 @@ func ParseAbstract(r io.Reader) (string, error) {
 }
 
 func (c Client) GetAbstract(ctx context.Context, p lit.Publication) (lit.Abstract, error) {
-	body, err := c.GetLink(ctx, p.LinkAbstract)
+	body, err := c.GetLink(ctx, p.Values[KeyLinkAbstract])
 	if err != nil {
 		return lit.Abstract{}, err
 	}
@@ -249,6 +328,53 @@ func (c Client) GetAbstract(ctx context.Context, p lit.Publication) (lit.Abstrac
 
 func (c Client) GetName() string {
 	return "Scopus by ELSEVIER"
+}
+
+func makeEntry(p lit.Publication) bibtex.Entry {
+	return bibtex.Entry{
+		Title:  p.Title,
+		Author: p.Creator,
+		Year:   p.CoverDate.Year(),
+	}
+}
+
+func makeArticle(p lit.Publication) bibtex.Reference {
+	var pageRange *string
+	var volume *string
+
+	if r, ok := p.Values[KeyPageRange]; ok {
+		pageRange = &r
+	}
+	if v, ok := p.Values[KeyVolume]; ok {
+		volume = &v
+	}
+
+	return bibtex.Article{
+		Entry:     makeEntry(p),
+		Journal:   p.Values[KeyPublicationName],
+		Volume:    volume,
+		PageRange: pageRange,
+	}
+}
+
+func makeMisc(p lit.Publication) bibtex.Reference {
+	note := fmt.Sprintf("%q", p.Values)
+	return bibtex.Misc{
+		Entry: makeEntry(p),
+		Note:  &note,
+	}
+}
+
+func (c Client) ToBibTeX(p lit.Publication) bibtex.Reference {
+	// TODO: up to now, I just saw Journal publications with my queries. I
+	// expect other types to show up. When that happens, the data stored in
+	// the notes of the misc entry will become useful.
+	switch p.Values[KeyAggregationType] {
+	case "Journal":
+		return makeArticle(p)
+	default:
+		return makeMisc(p)
+	}
 }
 
 func NewClient(apiKey string) Client {
