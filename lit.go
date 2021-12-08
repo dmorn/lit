@@ -27,10 +27,6 @@ func (a Abstract) GetText() string {
 	return strings.ReplaceAll(a.Text, "\n", "")
 }
 
-func (a Abstract) WriteTo(w io.Writer) error {
-	return writeTo(w, a)
-}
-
 type Review struct {
 	IsAccepted    bool   `json:"is_accepted"`
 	IsHighlighted bool   `json:"is_highlighted"`
@@ -45,6 +41,8 @@ type Publication struct {
 	Creator   string    `json:"creator"`
 
 	LinkAbstract string `json:"link_abstract"`
+
+	Aggregation string `json:"prism:aggregationType"`
 
 	*Abstract `json:"abstract,omitempty"`
 	*Review   `json:"review,omitempty"`
@@ -99,10 +97,6 @@ func writeTo(w io.Writer, i interface{}) error {
 		return err
 	}
 	return baseEnc.Close()
-}
-
-func (p Publication) WriteTo(w io.Writer) error {
-	return writeTo(w, p)
 }
 
 func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {

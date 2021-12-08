@@ -132,7 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Data:   []string{msg.query, fmt.Sprintf("%d", msg.max)},
 		}); err != nil {
 			m.err = err
-			return m, tea.Quit
+			return m, nil
 		}
 		m.searching = false
 		m.max = msg.max
