@@ -330,24 +330,47 @@ func (c Client) GetName() string {
 	return "Scopus by ELSEVIER"
 }
 
+func getStringPtr(p lit.Publication, key string) *string {
+	val, ok := p.Values[key]
+	if !ok {
+		return nil
+	}
+	if len(val) == 0 {
+		return nil
+	}
+	return &val
+}
+
 func makeEntry(p lit.Publication) bibtex.Entry {
+	doi := getStringPtr(p, KeyDOI)
+	issn := getStringPtr(p, KeyIssn)
+	url := getStringPtr(p, KeyLinkAbstract)
+
+	var abstract *string
+	if abs := p.Abstract; abs != nil {
+		abstract = &(abs.Text)
+	}
+
+	var reason *string
+	if rev := p.Review; rev != nil && !rev.IsAccepted {
+		reason = &(rev.RejectReason)
+	}
+
 	return bibtex.Entry{
-		Title:  p.Title,
-		Author: p.Creator,
-		Year:   p.CoverDate.Year(),
+		Title:        p.Title,
+		Author:       p.Creator,
+		Year:         p.CoverDate.Year(),
+		DOI:          doi,
+		Issn:         issn,
+		Url:          url,
+		Abstract:     abstract,
+		RejectReason: reason,
 	}
 }
 
 func makeArticle(p lit.Publication) bibtex.Reference {
-	var pageRange *string
-	var volume *string
-
-	if r, ok := p.Values[KeyPageRange]; ok {
-		pageRange = &r
-	}
-	if v, ok := p.Values[KeyVolume]; ok {
-		volume = &v
-	}
+	pageRange := getStringPtr(p, KeyPageRange)
+	volume := getStringPtr(p, KeyVolume)
 
 	return bibtex.Article{
 		Entry:     makeEntry(p),
@@ -365,13 +388,58 @@ func makeMisc(p lit.Publication) bibtex.Reference {
 	}
 }
 
+func makeInProceedings(p lit.Publication) bibtex.Reference {
+	// TODO: add publisher
+	// var publisher *string
+
+	pageRange := getStringPtr(p, KeyPageRange)
+	address := getStringPtr(p, KeyAffiliation)
+
+	return bibtex.InProceedings{
+		Entry:     makeEntry(p),
+		BookTitle: p.Values[KeyPublicationName],
+		Address:   address,
+		PageRange: pageRange,
+	}
+}
+
+func makeInCollection(p lit.Publication) bibtex.Reference {
+	// TODO: add publisher
+	// var publisher *string
+
+	pageRange := getStringPtr(p, KeyPageRange)
+	address := getStringPtr(p, KeyAffiliation)
+
+	return bibtex.InCollection{
+		Entry:     makeEntry(p),
+		BookTitle: p.Values[KeyPublicationName],
+		Address:   address,
+		PageRange: pageRange,
+	}
+}
+
+func makeBook(p lit.Publication) bibtex.Reference {
+	// TODO: add publisher
+	// var publisher *string
+
+	address := getStringPtr(p, KeyAffiliation)
+
+	return bibtex.Book{
+		Entry:   makeEntry(p),
+		Address: address,
+	}
+}
+
 func (c Client) ToBibTeX(p lit.Publication) bibtex.Reference {
-	// TODO: up to now, I just saw Journal publications with my queries. I
-	// expect other types to show up. When that happens, the data stored in
-	// the notes of the misc entry will become useful.
 	switch p.Values[KeyAggregationType] {
-	case "Journal":
+	case "Journal", "Trade Journal":
 		return makeArticle(p)
+	case "Conference Proceeding":
+		return makeInProceedings(p)
+	case "Book":
+		return makeBook(p)
+	case "Book Series":
+		return makeInCollection(p)
 	default:
 		return makeMisc(p)
 	}

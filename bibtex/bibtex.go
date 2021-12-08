@@ -57,7 +57,7 @@ func MarshalBibTeXReference(w io.Writer, ref Reference) error {
 	for k, v := range ref.Fields() {
 		fmt.Fprintf(w, "\t"+keyFmt+" = {%s}\n", k, strings.ReplaceAll(v, "\n", ""))
 	}
-	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "}\n\n")
 	return nil
 }
 
@@ -76,11 +76,11 @@ type Entry struct {
 	Year   int
 
 	// optional fields
-	DOI      *string // e.g. 10.1038/d41586-018-07848-2
-	Issn     *string // e.g. 1476-4687
-	Isbn     *string // e.g. 9780201896831
-	Url      *string
-	Abstract *string
+	DOI          *string // e.g. 10.1038/d41586-018-07848-2
+	Issn         *string // e.g. 1476-4687
+	Url          *string
+	Abstract     *string
+	RejectReason *string
 }
 
 func (e Entry) AuthorShort() string {
@@ -100,11 +100,28 @@ func (e Entry) CommonInfo() *Entry {
 }
 
 func (e Entry) Fields() map[string]string {
-	return map[string]string{
+	m := map[string]string{
 		"title":  e.Title,
 		"author": e.Author,
 		"year":   fmt.Sprintf("%d", e.Year),
 	}
+	if e.DOI != nil {
+		m["doi"] = *e.DOI
+	}
+	if e.Issn != nil {
+		m["issn"] = *e.Issn
+	}
+	if e.Url != nil {
+		m["url"] = *e.Url
+	}
+	if e.Abstract != nil {
+		m["abstract"] = *e.Abstract
+	}
+	if e.RejectReason != nil {
+		m["reject_reason"] = *e.RejectReason
+	}
+
+	return m
 }
 
 type Article struct {

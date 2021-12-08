@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
 	"flag"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jecoz/edb"
 	"github.com/jecoz/lit"
+	"github.com/jecoz/lit/bibtex"
 	"github.com/jecoz/lit/log"
 	"github.com/jecoz/lit/scopus"
 )
@@ -26,6 +28,11 @@ var (
 
 var (
 	edbPath = flag.String("edb", "lit.edb", "Event database file. Everything will be stored here.")
+)
+
+const (
+	PlaceholderReject = "Rejected due to..."
+	PlaceholderPrint  = "archive.zip name/path"
 )
 
 const MaxWidth = 120
@@ -50,11 +57,11 @@ func newInsertMode() insertMode {
 	return insertMode{
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "confirm reject reason"),
+			key.WithHelp("enter", "confirm input"),
 		),
 		Cancel: key.NewBinding(
 			key.WithKeys("esc"),
-			key.WithHelp("esc", "exit reject mode"),
+			key.WithHelp("esc", "exit insert mode"),
 		),
 	}
 }
@@ -66,6 +73,7 @@ type normalMode struct {
 	Accept    key.Binding
 	Highlight key.Binding
 	Reject    key.Binding
+	Print     key.Binding
 
 	Help key.Binding
 	Quit key.Binding
@@ -77,7 +85,7 @@ func (k normalMode) ShortHelp() []key.Binding {
 
 func (k normalMode) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject},
+		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject, k.Print},
 		{k.Help, k.Quit},
 	}
 }
@@ -112,6 +120,10 @@ func newNormalMode() normalMode {
 			key.WithKeys("r"),
 			key.WithHelp("r", "reject publication (providing a reason)"),
 		),
+		Print: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "print review"),
+		),
 	}
 }
 
@@ -128,6 +140,7 @@ type model struct {
 	pubs   []lit.Publication
 
 	rejecting     bool
+	printing      bool
 	rejectedCount int
 	acceptedCount int
 	err           error
@@ -160,6 +173,48 @@ func makeReview(cursor int, p lit.Publication, r lit.Review) tea.Cmd {
 			cursor: cursor,
 			pub:    p,
 		}
+	}
+}
+
+func saveReview(client lit.Library, name string, pubs []lit.Publication) tea.Cmd {
+	return func() tea.Msg {
+		accepted := make([]bibtex.Reference, 0, len(pubs))
+		rejected := make([]bibtex.Reference, 0, len(pubs))
+		for _, v := range pubs {
+			if v.Review != nil && v.Review.IsAccepted {
+				accepted = append(accepted, client.ToBibTeX(v))
+			}
+			if v.Review != nil && !v.Review.IsAccepted {
+				rejected = append(rejected, client.ToBibTeX(v))
+			}
+		}
+
+		f, err := os.Create(name)
+		if err != nil {
+			return errMsg{err}
+		}
+		defer f.Close()
+
+		archive := zip.NewWriter(f)
+		buf, err := archive.Create("accepted.bib")
+		if err != nil {
+			return errMsg{err}
+		}
+		if err := bibtex.MarshalBibTeXReferenceList(buf, accepted); err != nil {
+			return errMsg{err}
+		}
+		buf, err = archive.Create("rejected.bib")
+		if err != nil {
+			return errMsg{err}
+		}
+		if err := bibtex.MarshalBibTeXReferenceList(buf, rejected); err != nil {
+			return errMsg{err}
+		}
+
+		if err := archive.Close(); err != nil {
+			return errMsg{err}
+		}
+		return nil
 	}
 }
 
@@ -227,7 +282,14 @@ func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		)
 	case key.Matches(msg, keys.Reject):
 		m.textInput.Focus()
+		m.textInput.Placeholder = PlaceholderReject
 		m.rejecting = true
+		return m, nil
+	case key.Matches(msg, keys.Print):
+		m.textInput.Focus()
+		m.textInput.Placeholder = PlaceholderPrint
+		m.textInput.SetValue(fmt.Sprintf("review-%s.zip", time.Now().Format(time.RFC3339)))
+		m.printing = true
 		return m, nil
 	}
 	return m, nil
@@ -237,25 +299,36 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keys := m.insert
 	switch {
 	case key.Matches(msg, keys.Cancel):
+		m.textInput.Reset()
+		m.textInput.Blur()
 		m.rejecting = false
+		m.printing = false
 		return m, nil
 	case key.Matches(msg, keys.Enter):
 		if len(m.textInput.Value()) == 0 {
 			// TODO: tell the user?
 			return m, nil
 		}
-		defer func() {
-			m.textInput.Reset()
-			m.textInput.Blur()
-		}()
+
+		var cmd tea.Cmd
+		switch {
+		case m.rejecting:
+			cmd = tea.Sequentially(
+				makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+					IsAccepted:   false,
+					RejectReason: m.textInput.Value(),
+				}),
+				moveCursor(m.cursor+1),
+			)
+		case m.printing:
+			cmd = saveReview(m.client, m.textInput.Value(), m.pubs)
+		}
+
+		m.textInput.Reset()
+		m.textInput.Blur()
 		m.rejecting = false
-		return m, tea.Sequentially(
-			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-				IsAccepted:   false,
-				RejectReason: m.textInput.Value(),
-			}),
-			moveCursor(m.cursor+1),
-		)
+		m.printing = false
+		return m, cmd
 	}
 
 	var cmd tea.Cmd
@@ -264,7 +337,7 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.rejecting {
+	if m.rejecting || m.printing {
 		return m.handleKeyInsert(msg)
 	}
 	return m.handleKeyNormal(msg)
@@ -426,6 +499,18 @@ func (m model) helpView() string {
 }
 
 func (m model) View() string {
+	footer := lipgloss.NewStyle().MarginTop(1).Render(fmt.Sprintf("%s\n%s",
+		m.statsView(),
+		m.helpView(),
+	))
+
+	if m.printing {
+		return m.style.body.Render(fmt.Sprintf("%s\n%s\n",
+			m.textInput.View(),
+			footer,
+		))
+	}
+
 	header := lipgloss.NewStyle().Render(fmt.Sprintf("%s\n%s\n%s",
 		m.titleView(),
 		m.creatorView(),
@@ -435,11 +520,6 @@ func (m model) View() string {
 	progress := lipgloss.NewStyle().MarginBottom(1).MarginTop(1).Render(
 		m.progressView(),
 	)
-
-	footer := lipgloss.NewStyle().MarginTop(1).Render(fmt.Sprintf("%s\n%s",
-		m.statsView(),
-		m.helpView(),
-	))
 
 	return m.style.body.Render(fmt.Sprintf("%s\n%s\n%s\n%s",
 		header,
@@ -502,7 +582,6 @@ func Main() error {
 	}
 
 	ti := textinput.NewModel()
-	ti.Placeholder = "Rejected due to..."
 	ti.CharLimit = 256
 
 	return tea.NewProgram(model{
