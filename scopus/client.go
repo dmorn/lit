@@ -165,11 +165,6 @@ func (e openSearchEntry) Values() map[string]string {
 	}
 }
 
-type openSearchResult struct {
-	Total   string            `json:"opensearch:totalResults"`
-	Entries []openSearchEntry `json:"entry"`
-}
-
 func mapPublications(entries []openSearchEntry) ([]lit.Publication, error) {
 	pubs := make([]lit.Publication, len(entries))
 	for i, v := range entries {
@@ -188,49 +183,55 @@ func mapPublications(entries []openSearchEntry) ([]lit.Publication, error) {
 	return pubs, nil
 }
 
-func (c Client) getSearchResults(ctx context.Context, req lit.Request) (*openSearchResult, error) {
+func (c Client) GetLiterature(ctx context.Context, req lit.Request) (lit.Response, error) {
 	search := newSearchRequest(ctx, c.apiKey, req)
 	resp, err := c.httpClient.Do(search)
 	if err != nil {
-		return nil, err
+		return lit.Response{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, extractError(resp)
+		return lit.Response{}, extractError(resp)
 	}
 	defer resp.Body.Close()
 
 	var p struct {
-		Result *openSearchResult `json:"search-results"`
+		Results struct {
+			Entries []json.RawMessage `json:"entry"`
+		} `json:"search-results"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
-		return nil, err
-	}
-
-	return p.Result, nil
-}
-
-func (c Client) GetLiterature(ctx context.Context, req lit.Request) (lit.Response, error) {
-	result, err := c.getSearchResults(ctx, req)
-	if err != nil {
 		return lit.Response{}, err
 	}
-	pubs, err := mapPublications(result.Entries)
-	if err != nil {
-		return lit.Response{}, err
+	blobs := make([]lit.Blob, len(p.Results.Entries))
+	for i, v := range p.Results.Entries {
+		blobs[i] = lit.Blob(v)
 	}
 	return lit.Response{
-		Req:        req,
-		Literature: pubs,
+		Req:   req,
+		Blobs: blobs,
 	}, nil
 }
 
 func (c Client) GetMaxLiterature(ctx context.Context, req lit.Request) (int, error) {
-	result, err := c.getSearchResults(ctx, req)
+	search := newSearchRequest(ctx, c.apiKey, req)
+	resp, err := c.httpClient.Do(search)
 	if err != nil {
 		return 0, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return 0, extractError(resp)
+	}
+	defer resp.Body.Close()
 
-	n, err := strconv.Atoi(result.Total)
+	var p struct {
+		Results struct {
+			Total string `json:"opensearch:totalResults"`
+		} `json:"search-results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(p.Results.Total)
 	if err != nil {
 		return 0, fmt.Errorf("unexpected result field: %w", err)
 	}
@@ -244,6 +245,24 @@ func (c Client) GetRateLimit() time.Duration {
 
 func (c Client) ConcurrencyLimit() int {
 	return 6
+}
+
+func (c Client) ParsePublication(b lit.Blob) (lit.Publication, error) {
+	var entry openSearchEntry
+	if err := json.Unmarshal([]byte(b), &entry); err != nil {
+		return lit.Publication{}, err
+	}
+	coverDate, err := entry.CoverDate()
+	if err != nil {
+		return lit.Publication{}, fmt.Errorf("search result %s: %w", entry.Eid, err)
+	}
+
+	return lit.Publication{
+		Title:     entry.Title,
+		CoverDate: coverDate,
+		Creator:   entry.Creator,
+		Values:    entry.Values(),
+	}, nil
 }
 
 func (c Client) GetLink(ctx context.Context, link string) (io.ReadCloser, error) {

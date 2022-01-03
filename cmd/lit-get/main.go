@@ -58,7 +58,7 @@ type model struct {
 	client lit.Library
 	query  string
 	max    int
-	next   *lit.PublicationChan
+	next   *lit.BlobChan
 
 	received int
 	err      error
@@ -68,29 +68,29 @@ type model struct {
 	help     help.Model
 }
 
-type publicationMsg struct {
-	pub lit.Publication
+type blobMsg struct {
+	blob lit.Blob
 }
 
 type errMsg struct {
 	err error
 }
 
-func handlePublication(pubchan *lit.PublicationChan) tea.Cmd {
+func handleBlob(blobChan *lit.BlobChan) tea.Cmd {
 	return func() tea.Msg {
-		pub, ok := <-pubchan.Recv()
+		blob, ok := <-blobChan.Recv()
 		if !ok {
-			return errMsg{pubchan.Err()}
+			return errMsg{blobChan.Err()}
 		}
-		return publicationMsg{
-			pub: pub,
+		return blobMsg{
+			blob: blob,
 		}
 	}
 }
 
-func listenPublications(pubchan *lit.PublicationChan, client lit.Library, query string) tea.Cmd {
+func listenPublications(blobChan *lit.BlobChan, client lit.Library, query string) tea.Cmd {
 	return func() tea.Msg {
-		lit.GetLiterature(context.Background(), pubchan, client, lit.Request{
+		lit.GetLiterature(context.Background(), blobChan, client, lit.Request{
 			Query: query,
 		})
 		return nil
@@ -99,7 +99,7 @@ func listenPublications(pubchan *lit.PublicationChan, client lit.Library, query 
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		handlePublication(m.next),
+		handleBlob(m.next),
 		listenPublications(m.next, m.client, m.query),
 	)
 }
@@ -120,26 +120,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.done = true
 		m.err = msg.err
-	case publicationMsg:
+	case blobMsg:
 		m.received++
-		data, err := msg.pub.Marshal()
+		pub, err := m.client.ParsePublication(msg.blob)
 		if err != nil {
 			m.err = err
 			return m, nil
 		}
-		ref := m.client.ToBibTeX(msg.pub)
+		ref := m.client.ToBibTeX(pub)
+
+		data, err := msg.blob.Marshal()
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
 
 		if err := m.db.Append(&edb.Event{
 			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
 			Issuer: m.client.GetName(),
 			Scope:  "lit",
-			Action: "add_lit",
+			Action: "add_blob",
 			Data:   []string{ref.CiteKey(), data},
 		}); err != nil {
 			m.err = err
 			return m, nil
 		}
-		return m, handlePublication(m.next)
+		return m, handleBlob(m.next)
 	}
 	return m, nil
 }
@@ -207,7 +213,7 @@ func Program(db *edb.Db, client lit.Library, opts ...tea.ProgramOption) (*tea.Pr
 		client:   client,
 		query:    query,
 		max:      max,
-		next:     lit.NewPublicationChan(max, 0),
+		next:     lit.NewBlobChan(max, 0),
 		progress: progress.NewModel(progress.WithDefaultGradient()),
 		help:     help.NewModel(),
 	}, opts...), nil

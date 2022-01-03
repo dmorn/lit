@@ -162,6 +162,11 @@ func moveCursor(n int) tea.Cmd {
 	}
 }
 
+type reviewMsg struct {
+	cursor int
+	pub    lit.Publication
+}
+
 func makeReview(cursor int, p lit.Publication, r lit.Review) tea.Cmd {
 	return func() tea.Msg {
 		if p.Review != nil {
@@ -169,7 +174,7 @@ func makeReview(cursor int, p lit.Publication, r lit.Review) tea.Cmd {
 		}
 
 		p.Review = &r
-		return publicationMsg{
+		return reviewMsg{
 			cursor: cursor,
 			pub:    p,
 		}
@@ -226,7 +231,7 @@ func (m errMsg) Error() string {
 	return m.err.Error()
 }
 
-type publicationMsg struct {
+type abstractMsg struct {
 	cursor int
 	pub    lit.Publication
 }
@@ -243,7 +248,7 @@ func getAbstract(client lit.Library, cursor int, p lit.Publication) tea.Cmd {
 		if err := p.GetAbstract(ctx, client); err != nil {
 			return errMsg{err}
 		}
-		return publicationMsg{
+		return abstractMsg{
 			pub:    p,
 			cursor: cursor,
 		}
@@ -356,8 +361,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		return m, nil
-	case publicationMsg:
-		data, err := msg.pub.Marshal()
+	case abstractMsg:
+		data, err := msg.pub.Abstract.Marshal()
 		if err != nil {
 			m.err = err
 			return m, nil
@@ -367,7 +372,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
 			Issuer: "reviewer",
 			Scope:  "lit",
-			Action: "update_lit",
+			Action: "add_abstract",
+			Data:   []string{ref.CiteKey(), data, fmt.Sprintf("%d", msg.cursor)},
+		}); err != nil {
+			m.err = err
+			return m, nil
+		}
+		m.pubs[msg.cursor] = msg.pub
+		return m, nil
+	case reviewMsg:
+		data, err := msg.pub.Review.Marshal()
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
+		ref := m.client.ToBibTeX(msg.pub)
+		if err := m.db.Append(&edb.Event{
+			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
+			Issuer: "reviewer",
+			Scope:  "lit",
+			Action: "add_review",
 			Data:   []string{ref.CiteKey(), data, fmt.Sprintf("%d", msg.cursor)},
 		}); err != nil {
 			m.err = err
@@ -543,6 +567,7 @@ func Main() error {
 	}
 	defer db.Close()
 
+	client := scopus.NewClient(scopusKey)
 	query := ""
 	pubs := []lit.Publication{}
 	cursor := 0
@@ -552,29 +577,45 @@ func Main() error {
 		switch e.Action {
 		case "set_query":
 			query = e.Data[0]
-		case "add_lit":
-			p := new(lit.Publication)
-			if err := p.Unmarshal(e.Data[1]); err != nil {
-				return fmt.Errorf("add_lit: %w", err)
+		case "add_blob":
+			b := new(lit.Blob)
+			if err := b.Unmarshal(e.Data[1]); err != nil {
+				return fmt.Errorf("add_blob: unmarshal: %w", err)
 			}
-			pubs = append(pubs, *p)
-		case "update_lit":
-			p := new(lit.Publication)
-			if err := p.Unmarshal(e.Data[1]); err != nil {
-				return err
+			pub, err := client.ParsePublication(*b)
+			if err != nil {
+				return fmt.Errorf("add_blob: parse publication: %w", err)
 			}
-			if rev := p.Review; rev != nil {
-				if rev.IsAccepted {
-					acceptedCount++
-				} else {
-					rejectedCount++
-				}
-			}
+			pubs = append(pubs, pub)
+		case "add_abstract":
 			index, err := strconv.Atoi(e.Data[2])
 			if err != nil {
-				return fmt.Errorf("update_lit: index conversion: %w", err)
+				return fmt.Errorf("add_abstract: index conversion: %w", err)
 			}
-			pubs[index] = *p // Yes I'm buying myself a panic
+			// TODO: check citekey is the same
+			if err := pubs[index].Abstract.Unmarshal(e.Data[1]); err != nil {
+				return err
+			}
+			/*
+				case "update_lit":
+					index, err := strconv.Atoi(e.Data[2])
+					p := new(lit.Publication)
+					if err := p.Unmarshal(e.Data[1]); err != nil {
+						return err
+					}
+					if rev := p.Review; rev != nil {
+						if rev.IsAccepted {
+							acceptedCount++
+						} else {
+							rejectedCount++
+						}
+					}
+					index, err := strconv.Atoi(e.Data[2])
+					if err != nil {
+						return fmt.Errorf("update_lit: index conversion: %w", err)
+					}
+					pubs[index] = *p // Yes I'm buying myself a panic
+			*/
 		case "move_cursor":
 			var err error
 			cursor, err = strconv.Atoi(e.Data[0])
@@ -593,7 +634,7 @@ func Main() error {
 
 	return tea.NewProgram(model{
 		db:            db,
-		client:        scopus.NewClient(scopusKey),
+		client:        client,
 		style:         defaultStyle,
 		insert:        newInsertMode(),
 		normal:        newNormalMode(),

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"strings"
 	"time"
@@ -14,6 +13,41 @@ import (
 	"github.com/jecoz/lit/bibtex"
 	"golang.org/x/sync/errgroup"
 )
+
+func marshal(s string) (string, error) {
+	var buf bytes.Buffer
+	baseEnc := base64.NewEncoder(base64.StdEncoding, &buf)
+	if _, err := baseEnc.Write([]byte(s)); err != nil {
+		return "", err
+	}
+	if err := baseEnc.Close(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func unmarshal(data string) (string, error) {
+	b, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+type Blob []byte
+
+func (b Blob) Marshal() (string, error) {
+	return marshal(string(b))
+}
+
+func (b *Blob) Unmarshal(data string) error {
+	d, err := unmarshal(data)
+	if err != nil {
+		return err
+	}
+	*b = Blob(d)
+	return nil
+}
 
 type Abstract struct {
 	Text string `json:"text"`
@@ -23,10 +57,45 @@ func (a Abstract) GetText() string {
 	return strings.ReplaceAll(a.Text, "\n", "")
 }
 
+func (a Abstract) Marshal() (string, error) {
+	return marshal(a.Text)
+}
+
+func (a *Abstract) Unmarshal(data string) error {
+	if a == nil {
+		a = new(Abstract)
+	}
+	d, err := unmarshal(data)
+	if err != nil {
+		return err
+	}
+	a.Text = d
+	return nil
+}
+
 type Review struct {
 	IsAccepted    bool   `json:"is_accepted"`
 	IsHighlighted bool   `json:"is_highlighted"`
 	RejectReason  string `json:"reject_reason"`
+}
+
+func (r Review) Marshal() (string, error) {
+	d, err := json.Marshal(r)
+	if err != nil {
+		return "", err
+	}
+	return marshal(string(d))
+}
+
+func (r *Review) Unmarshal(data string) error {
+	if r == nil {
+		r = new(Review)
+	}
+	d, err := unmarshal(data)
+	if err != nil {
+		return err
+	}
+	return json.NewDecoder(strings.NewReader(d)).Decode(r)
 }
 
 type Publication struct {
@@ -41,31 +110,6 @@ type Publication struct {
 	*Review   `json:"review,omitempty"`
 }
 
-func (p Publication) Marshal() (string, error) {
-	var buf bytes.Buffer
-	if err := writeTo(&buf, &p); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-func (p *Publication) Unmarshal(data string) error {
-	r := base64.NewDecoder(base64.StdEncoding, strings.NewReader(data))
-	return json.NewDecoder(r).Decode(p)
-}
-
-func writeTo(w io.Writer, i interface{}) error {
-	data, err := json.Marshal(i)
-	if err != nil {
-		return err
-	}
-	baseEnc := base64.NewEncoder(base64.StdEncoding, w)
-	if _, err := baseEnc.Write(data); err != nil {
-		return err
-	}
-	return baseEnc.Close()
-}
-
 func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
 	abs, err := lib.GetAbstract(ctx, *p)
 	if err != nil {
@@ -75,9 +119,9 @@ func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
 	return nil
 }
 
-type PublicationChan struct {
+type BlobChan struct {
 	// queue of publications. Closed when no more will be delivered.
-	queue chan Publication
+	queue chan Blob
 
 	// Once the Chan is open, max tells the number of publications to
 	// expect from it.
@@ -87,31 +131,31 @@ type PublicationChan struct {
 	err error
 }
 
-func (c *PublicationChan) Recv() <-chan Publication {
+func (c *BlobChan) Recv() <-chan Blob {
 	return c.queue
 }
 
-func (c *PublicationChan) Send(p Publication) error {
+func (c *BlobChan) Send(p Blob) error {
 	c.queue <- p
 	return nil
 }
 
-func (c *PublicationChan) Max() int {
+func (c *BlobChan) Max() int {
 	return c.max
 }
 
-func (c *PublicationChan) CloseWithError(err error) {
+func (c *BlobChan) CloseWithError(err error) {
 	c.err = err
 	close(c.queue)
 }
 
-func (c *PublicationChan) Err() error {
+func (c *BlobChan) Err() error {
 	return c.err
 }
 
-func NewPublicationChan(max, queueLen int) *PublicationChan {
-	return &PublicationChan{
-		queue: make(chan Publication, queueLen),
+func NewBlobChan(max, queueLen int) *BlobChan {
+	return &BlobChan{
+		queue: make(chan Blob, queueLen),
 		max:   max,
 	}
 }
@@ -145,12 +189,12 @@ func (r Request) String() string {
 }
 
 type Response struct {
-	Req        Request
-	Literature []Publication
+	Req   Request
+	Blobs []Blob
 }
 
 func (r Response) Len() int {
-	return len(r.Literature)
+	return len(r.Blobs)
 }
 
 func (r Response) IsEmpty() bool {
@@ -164,13 +208,14 @@ type Library interface {
 
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
+	ParsePublication(Blob) (Publication, error)
 	GetAbstract(context.Context, Publication) (Abstract, error)
 
 	ToBibTeX(Publication) bibtex.Reference
 	ReferenceLink(Publication) string
 }
 
-func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
+func searchLoop(ctx context.Context, blobChan *BlobChan, lib Library, req Request) {
 	requests := make(chan Request, req.RoundsNeeded())
 	for i := 0; i < req.RoundsNeeded(); i++ {
 		requests <- req.CloneWithPage(i)
@@ -188,20 +233,20 @@ func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req 
 			if err != nil {
 				return fmt.Errorf("get literature: page %d: %w", r.Page, err)
 			}
-			for _, pub := range resp.Literature {
-				pubChan.Send(pub)
+			for _, blob := range resp.Blobs {
+				blobChan.Send(blob)
 			}
 			return nil
 		})
 	}
-	pubChan.CloseWithError(g.Wait())
+	blobChan.CloseWithError(g.Wait())
 }
 
-func GetLiterature(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {
-	req.MaxResults = pubChan.Max()
+func GetLiterature(ctx context.Context, blobChan *BlobChan, lib Library, req Request) {
+	req.MaxResults = blobChan.Max()
 	if req.PerPage <= 0 {
 		req.PerPage = lib.DefaultPerPage()
 	}
 
-	searchLoop(ctx, pubChan, lib, req)
+	searchLoop(ctx, blobChan, lib, req)
 }

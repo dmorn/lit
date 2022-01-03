@@ -49,20 +49,16 @@ func (c *MockClient) GetLiterature(ctx context.Context, r lit.Request) (lit.Resp
 		size = r.PerPage
 	}
 
-	pubs := make([]lit.Publication, size)
+	blobs := make([]lit.Blob, size)
 	for i := 0; i < size; i++ {
-		pubs[i] = lit.Publication{
-			Title:     fmt.Sprintf("pub #%d", i+start),
-			CoverDate: time.Now(),
-			Creator:   "Ciuck Taylor",
-		}
+		blobs[i] = []byte(fmt.Sprintf("pub #%d", i+start))
 	}
 
-	c.pubsCount += len(pubs)
+	c.pubsCount += len(blobs)
 	c.requestCount++
 	return lit.Response{
-		Req:        r,
-		Literature: pubs,
+		Req:   r,
+		Blobs: blobs,
 	}, c.litErr
 }
 
@@ -76,6 +72,14 @@ func (c *MockClient) GetAbstract(context.Context, lit.Publication) (lit.Abstract
 
 func (c *MockClient) ReferenceLink(lit.Publication) string {
 	return "https://nowhere.com"
+}
+
+func (c *MockClient) ParsePublication(b lit.Blob) (lit.Publication, error) {
+	return lit.Publication{
+		Title:     string(b),
+		CoverDate: time.Now(),
+		Creator:   "Ciuck Taylor",
+	}, nil
 }
 
 type MockFile struct {
