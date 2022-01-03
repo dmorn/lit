@@ -74,6 +74,10 @@ func (c *MockClient) GetAbstract(context.Context, lit.Publication) (lit.Abstract
 	return lit.Abstract{}, fmt.Errorf("get abstract: not implemented")
 }
 
+func (c *MockClient) ReferenceLink(lit.Publication) string {
+	return "https://nowhere.com"
+}
+
 type MockFile struct {
 	*bytes.Buffer
 }

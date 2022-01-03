@@ -420,10 +420,10 @@ type style struct {
 }
 
 var defaultStyle = style{
-	body: lipgloss.NewStyle().Width(MaxWidth).Margin(1),
+	body: lipgloss.NewStyle().Margin(1),
 	bold: lipgloss.NewStyle().Bold(true),
 
-	abstract: lipgloss.NewStyle(),
+	abstract: lipgloss.NewStyle().Width(MaxWidth),
 	err:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")), // TODO: change this color
 
 	rejected: lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true),
@@ -442,6 +442,12 @@ func (m model) creatorView() string {
 	p := m.pubs[m.cursor]
 	ref := m.client.ToBibTeX(p)
 	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year(), ref.CiteKey()))
+}
+
+func (m model) linkView() string {
+	p := m.pubs[m.cursor]
+	l := m.client.ReferenceLink(p)
+	return m.style.abstract.Render(l)
 }
 
 func (m model) statusView() string {
@@ -511,9 +517,10 @@ func (m model) View() string {
 		))
 	}
 
-	header := lipgloss.NewStyle().Render(fmt.Sprintf("%s\n%s\n%s",
+	header := lipgloss.NewStyle().Render(fmt.Sprintf("%s\n%s\n%s\n%s",
 		m.titleView(),
 		m.creatorView(),
+		m.linkView(),
 		m.statusView(),
 	))
 

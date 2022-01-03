@@ -167,6 +167,7 @@ type Library interface {
 	GetAbstract(context.Context, Publication) (Abstract, error)
 
 	ToBibTeX(Publication) bibtex.Reference
+	ReferenceLink(Publication) string
 }
 
 func searchLoop(ctx context.Context, pubChan *PublicationChan, lib Library, req Request) {

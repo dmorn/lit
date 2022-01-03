@@ -445,6 +445,18 @@ func (c Client) ToBibTeX(p lit.Publication) bibtex.Reference {
 	}
 }
 
+func (c Client) ReferenceLink(p lit.Publication) string {
+	u, err := url.Parse(p.Values[KeyLinkAbstract])
+	if err != nil {
+		// No worries
+		panic(err)
+	}
+	q := u.Query()
+	q.Set("access_token", c.apiKey)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 func NewClient(apiKey string) Client {
 	tr := &http.Transport{
 		MaxIdleConns:       10,
