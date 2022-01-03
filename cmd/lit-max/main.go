@@ -121,6 +121,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, getMaxLiterature(m.client, m.textInput.Value())
 		}
 	case errMsg:
+		m.searching = false
 		m.err = msg
 		return m, nil
 	case maxMsg:
@@ -158,11 +159,11 @@ var (
 )
 
 func (m model) queryView() string {
-	if m.searching {
-		return searchingStyle.Render("searching...")
-	}
 	if m.err != nil {
 		return errorStyle.Render(fmt.Sprintf("error: %v", m.err))
+	}
+	if m.searching {
+		return searchingStyle.Render("searching...")
 	}
 	return resultStyle.Render(fmt.Sprintf("%q hit %d results", m.query, m.max))
 }
