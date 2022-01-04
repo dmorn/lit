@@ -592,30 +592,26 @@ func Main() error {
 			if err != nil {
 				return fmt.Errorf("add_abstract: index conversion: %w", err)
 			}
-			// TODO: check citekey is the same
-			if err := pubs[index].Abstract.Unmarshal(e.Data[1]); err != nil {
+			a := new(lit.Abstract)
+			if err := a.Unmarshal(e.Data[1]); err != nil {
 				return err
 			}
-			/*
-				case "update_lit":
-					index, err := strconv.Atoi(e.Data[2])
-					p := new(lit.Publication)
-					if err := p.Unmarshal(e.Data[1]); err != nil {
-						return err
-					}
-					if rev := p.Review; rev != nil {
-						if rev.IsAccepted {
-							acceptedCount++
-						} else {
-							rejectedCount++
-						}
-					}
-					index, err := strconv.Atoi(e.Data[2])
-					if err != nil {
-						return fmt.Errorf("update_lit: index conversion: %w", err)
-					}
-					pubs[index] = *p // Yes I'm buying myself a panic
-			*/
+			pubs[index].Abstract = a
+		case "add_review":
+			index, err := strconv.Atoi(e.Data[2])
+			if err != nil {
+				return fmt.Errorf("add_review: index conversion: %w", err)
+			}
+			r := new(lit.Review)
+			if err := r.Unmarshal(e.Data[1]); err != nil {
+				return err
+			}
+			if r.IsAccepted {
+				acceptedCount++
+			} else {
+				rejectedCount++
+			}
+			pubs[index].Review = r
 		case "move_cursor":
 			var err error
 			cursor, err = strconv.Atoi(e.Data[0])

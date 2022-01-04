@@ -62,9 +62,6 @@ func (a Abstract) Marshal() (string, error) {
 }
 
 func (a *Abstract) Unmarshal(data string) error {
-	if a == nil {
-		a = new(Abstract)
-	}
 	d, err := unmarshal(data)
 	if err != nil {
 		return err
@@ -88,9 +85,6 @@ func (r Review) Marshal() (string, error) {
 }
 
 func (r *Review) Unmarshal(data string) error {
-	if r == nil {
-		r = new(Review)
-	}
 	d, err := unmarshal(data)
 	if err != nil {
 		return err
