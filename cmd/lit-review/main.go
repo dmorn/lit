@@ -74,6 +74,7 @@ type normalMode struct {
 	Highlight key.Binding
 	Reject    key.Binding
 	Print     key.Binding
+	Inspect   key.Binding
 
 	Help key.Binding
 	Quit key.Binding
@@ -85,7 +86,7 @@ func (k normalMode) ShortHelp() []key.Binding {
 
 func (k normalMode) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject, k.Print},
+		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject, k.Print, k.Inspect},
 		{k.Help, k.Quit},
 	}
 }
@@ -123,6 +124,10 @@ func newNormalMode() normalMode {
 		Print: key.NewBinding(
 			key.WithKeys("p"),
 			key.WithHelp("p", "print review"),
+		),
+		Inspect: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "inspect publication data blob"),
 		),
 	}
 }
@@ -296,6 +301,8 @@ func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textInput.SetValue(fmt.Sprintf("review-%s.zip", time.Now().Format(time.RFC3339)))
 		m.printing = true
 		return m, nil
+	case key.Matches(msg, keys.Inspect):
+		return m, nil
 	}
 	return m, nil
 }
@@ -432,10 +439,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 type style struct {
-	body lipgloss.Style
 	bold lipgloss.Style
 
 	abstract lipgloss.Style
+	link     lipgloss.Style
 	err      lipgloss.Style
 
 	rejected lipgloss.Style
@@ -444,10 +451,10 @@ type style struct {
 }
 
 var defaultStyle = style{
-	body: lipgloss.NewStyle().Margin(1),
 	bold: lipgloss.NewStyle().Bold(true),
 
-	abstract: lipgloss.NewStyle().Width(MaxWidth),
+	abstract: lipgloss.NewStyle(),
+	link:     lipgloss.NewStyle(),
 	err:      lipgloss.NewStyle().Foreground(lipgloss.Color("5")), // TODO: change this color
 
 	rejected: lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true),
@@ -471,7 +478,7 @@ func (m model) creatorView() string {
 func (m model) linkView() string {
 	p := m.pubs[m.cursor]
 	l := m.client.ReferenceLink(p)
-	return m.style.abstract.Render(l)
+	return m.style.link.Render(l)
 }
 
 func (m model) statusView() string {
@@ -529,33 +536,36 @@ func (m model) helpView() string {
 }
 
 func (m model) View() string {
-	footer := lipgloss.NewStyle().MarginTop(1).Render(fmt.Sprintf("%s\n%s",
+	container := lipgloss.NewStyle().Margin(1)
+
+	progress := lipgloss.NewStyle().MarginBottom(1).Render(
+		m.progressView(),
+	)
+	footer := lipgloss.NewStyle().MarginTop(1).Render(fmt.Sprintf("%s\n%s\n%s",
+		progress,
 		m.statsView(),
 		m.helpView(),
 	))
 
 	if m.printing {
-		return m.style.body.Render(fmt.Sprintf("%s\n%s\n",
+		return container.Render(fmt.Sprintf("%s\n%s\n",
 			m.textInput.View(),
 			footer,
 		))
 	}
 
-	header := lipgloss.NewStyle().Render(fmt.Sprintf("%s\n%s\n%s\n%s",
+	header := fmt.Sprintf("%s\n%s\n%s",
 		m.titleView(),
 		m.creatorView(),
-		m.linkView(),
 		m.statusView(),
-	))
-
-	progress := lipgloss.NewStyle().MarginBottom(1).MarginTop(1).Render(
-		m.progressView(),
 	)
 
-	return m.style.body.Render(fmt.Sprintf("%s\n%s\n%s\n%s",
+	abstract := lipgloss.NewStyle().MarginTop(1).MarginBottom(1).Width(MaxWidth).Render(m.abstractView())
+	body := fmt.Sprintf("%s\n%s", abstract, m.linkView())
+
+	return container.Render(fmt.Sprintf("%s\n%s\n%s",
 		header,
-		progress,
-		m.abstractView(),
+		body,
 		footer,
 	))
 }
