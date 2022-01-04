@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -146,6 +147,8 @@ type model struct {
 
 	rejecting     bool
 	printing      bool
+	inspecting    bool
+	inspection    string
 	rejectedCount int
 	acceptedCount int
 	err           error
@@ -182,6 +185,44 @@ func makeReview(cursor int, p lit.Publication, r lit.Review) tea.Cmd {
 		return reviewMsg{
 			cursor: cursor,
 			pub:    p,
+		}
+	}
+}
+
+type inspectMsg struct {
+	dump string
+}
+
+func makeInspection(client lit.Library, db *edb.Db, pub lit.Publication) tea.Cmd {
+	return func() tea.Msg {
+		var (
+			event edb.Event
+			ok    bool
+		)
+		key := client.ToBibTeX(pub).CiteKey()
+		db.Revive(func(e edb.Event) error {
+			if e.Scope == "lit" && e.Action == "add_blob" && e.Data[0] == key {
+				ok = true
+				event = e
+				return fmt.Errorf("stop")
+			}
+			return nil
+		})
+		if !ok {
+			return errMsg{
+				fmt.Errorf("make inspection: blob %q not found", key),
+			}
+		}
+		blob := new(lit.Blob)
+		if err := blob.Unmarshal(event.Data[1]); err != nil {
+			return errMsg{err}
+		}
+		var buf bytes.Buffer
+		if err := client.PrettyPrint(*blob, &buf); err != nil {
+			return errMsg{err}
+		}
+		return inspectMsg{
+			dump: buf.String(),
 		}
 	}
 }
@@ -302,23 +343,28 @@ func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.printing = true
 		return m, nil
 	case key.Matches(msg, keys.Inspect):
-		return m, nil
+		return m, makeInspection(m.client, m.db, m.pubs[m.cursor])
 	}
 	return m, nil
 }
 
 func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	keys := m.insert
-	switch {
-	case key.Matches(msg, keys.Cancel):
+	reset := func(m *model) {
 		m.textInput.Reset()
 		m.textInput.Blur()
 		m.rejecting = false
 		m.printing = false
+		m.inspecting = false
+	}
+
+	keys := m.insert
+	switch {
+	case key.Matches(msg, keys.Cancel):
+		reset(&m)
 		return m, nil
 	case key.Matches(msg, keys.Enter):
-		if len(m.textInput.Value()) == 0 {
-			// TODO: tell the user?
+		if len(m.textInput.Value()) == 0 || m.inspecting {
+			reset(&m)
 			return m, nil
 		}
 
@@ -336,10 +382,7 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			cmd = saveReview(m.client, m.textInput.Value(), m.pubs)
 		}
 
-		m.textInput.Reset()
-		m.textInput.Blur()
-		m.rejecting = false
-		m.printing = false
+		reset(&m)
 		return m, cmd
 	}
 
@@ -349,7 +392,7 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.rejecting || m.printing {
+	if m.rejecting || m.printing || m.inspecting {
 		return m.handleKeyInsert(msg)
 	}
 	return m.handleKeyNormal(msg)
@@ -413,6 +456,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case inspectMsg:
+		m.inspecting = true
+		m.inspection = msg.dump
+		return m, nil
 	case cursorMsg:
 		cursor := int(msg)
 		switch {
@@ -472,7 +519,7 @@ func (m model) titleView() string {
 func (m model) creatorView() string {
 	p := m.pubs[m.cursor]
 	ref := m.client.ToBibTeX(p)
-	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s)", p.Creator, p.CoverDate.Year(), ref.CiteKey()))
+	return m.style.abstract.Render(fmt.Sprintf("%s, %d (%s, %s)", p.Creator, p.CoverDate.Year(), ref.CiteKey(), ref.EntryType()))
 }
 
 func (m model) linkView() string {
@@ -528,7 +575,7 @@ func (m model) statsView() string {
 }
 
 func (m model) helpView() string {
-	if m.rejecting {
+	if m.rejecting || m.inspecting {
 		return m.help.View(m.insert)
 	}
 
@@ -550,6 +597,12 @@ func (m model) View() string {
 	if m.printing {
 		return container.Render(fmt.Sprintf("%s\n%s\n",
 			m.textInput.View(),
+			footer,
+		))
+	}
+	if m.inspecting {
+		return container.Render(fmt.Sprintf("%s\n%s",
+			m.inspection,
 			footer,
 		))
 	}

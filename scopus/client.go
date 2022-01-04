@@ -247,6 +247,10 @@ func (c Client) ConcurrencyLimit() int {
 	return 6
 }
 
+func (c Client) PrettyPrint(b lit.Blob, dst *bytes.Buffer) error {
+	return json.Indent(dst, []byte(b), "", "\t")
+}
+
 func (c Client) ParsePublication(b lit.Blob) (lit.Publication, error) {
 	var entry openSearchEntry
 	if err := json.Unmarshal([]byte(b), &entry); err != nil {

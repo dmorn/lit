@@ -203,6 +203,7 @@ type Library interface {
 	GetLiterature(context.Context, Request) (Response, error)
 	GetMaxLiterature(context.Context, Request) (int, error)
 	ParsePublication(Blob) (Publication, error)
+	PrettyPrint(Blob, *bytes.Buffer) error
 	GetAbstract(context.Context, Publication) (Abstract, error)
 
 	ToBibTeX(Publication) bibtex.Reference
