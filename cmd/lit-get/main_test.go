@@ -82,6 +82,10 @@ func (c *MockClient) ParsePublication(b lit.Blob) (lit.Publication, error) {
 	}, nil
 }
 
+func (c *MockClient) PrettyPrint(b lit.Blob, dst *bytes.Buffer) error {
+	return fmt.Errorf("not implemented")
+}
+
 type MockFile struct {
 	*bytes.Buffer
 }
