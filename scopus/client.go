@@ -374,6 +374,12 @@ func makeEntry(p lit.Publication) bibtex.Entry {
 		abstract = &(abs.Text)
 	}
 
+	var keywords *string
+	if k := p.Keywords; k != nil {
+		text := k.Text()
+		keywords = &text
+	}
+
 	var reason *string
 	if rev := p.Review; rev != nil && !rev.IsAccepted {
 		reason = &(rev.RejectReason)
@@ -387,6 +393,7 @@ func makeEntry(p lit.Publication) bibtex.Entry {
 		Issn:         issn,
 		Url:          url,
 		Abstract:     abstract,
+		Keywords:     keywords,
 		RejectReason: reason,
 	}
 }

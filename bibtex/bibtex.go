@@ -80,6 +80,7 @@ type Entry struct {
 	Issn         *string // e.g. 1476-4687
 	Url          *string
 	Abstract     *string
+	Keywords     *string
 	RejectReason *string
 }
 
@@ -116,6 +117,9 @@ func (e Entry) Fields() map[string]string {
 	}
 	if e.Abstract != nil {
 		m["abstract"] = *e.Abstract
+	}
+	if e.Keywords != nil {
+		m["keywords"] = *e.Keywords
 	}
 	if e.RejectReason != nil {
 		m["reject_reason"] = *e.RejectReason

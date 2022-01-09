@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -33,6 +34,7 @@ var (
 
 const (
 	PlaceholderReject = "Rejected due to..."
+	PlaceholderLabel  = "Set keywords in a comma separated format"
 	PlaceholderPrint  = "archive.zip name/path"
 )
 
@@ -74,6 +76,7 @@ type normalMode struct {
 	Accept    key.Binding
 	Highlight key.Binding
 	Reject    key.Binding
+	Label     key.Binding
 	Print     key.Binding
 	Inspect   key.Binding
 
@@ -87,7 +90,7 @@ func (k normalMode) ShortHelp() []key.Binding {
 
 func (k normalMode) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject, k.Print, k.Inspect},
+		{k.Left, k.Right, k.Accept, k.Highlight, k.Reject, k.Print, k.Inspect, k.Label},
 		{k.Help, k.Quit},
 	}
 }
@@ -130,6 +133,10 @@ func newNormalMode() normalMode {
 			key.WithKeys("i"),
 			key.WithHelp("i", "inspect publication data blob"),
 		),
+		Label: key.NewBinding(
+			key.WithKeys("k"),
+			key.WithHelp("k", "label publication setting keywords, csv format"),
+		),
 	}
 }
 
@@ -149,6 +156,7 @@ type model struct {
 	printing      bool
 	inspecting    bool
 	inspection    string
+	labeling      bool
 	rejectedCount int
 	acceptedCount int
 	err           error
@@ -183,6 +191,24 @@ func makeReview(cursor int, p lit.Publication, r lit.Review) tea.Cmd {
 
 		p.Review = &r
 		return reviewMsg{
+			cursor: cursor,
+			pub:    p,
+		}
+	}
+}
+
+type keywordsMsg struct {
+	cursor int
+	pub    lit.Publication
+}
+
+func makeKeywords(cursor int, p lit.Publication, input string) tea.Cmd {
+	return func() tea.Msg {
+		k := new(lit.Keywords)
+		k.Parse(input)
+
+		p.Keywords = k
+		return keywordsMsg{
 			cursor: cursor,
 			pub:    p,
 		}
@@ -317,20 +343,14 @@ func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Right):
 		return m, moveCursor(m.cursor + 1)
 	case key.Matches(msg, keys.Accept):
-		return m, tea.Sequentially(
-			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-				IsAccepted: true,
-			}),
-			moveCursor(m.cursor+1),
-		)
+		return m, makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+			IsAccepted: true,
+		})
 	case key.Matches(msg, keys.Highlight):
-		return m, tea.Sequentially(
-			makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
-				IsAccepted:    true,
-				IsHighlighted: true,
-			}),
-			moveCursor(m.cursor+1),
-		)
+		return m, makeReview(m.cursor, m.pubs[m.cursor], lit.Review{
+			IsAccepted:    true,
+			IsHighlighted: true,
+		})
 	case key.Matches(msg, keys.Reject):
 		m.textInput.Focus()
 		m.textInput.Placeholder = PlaceholderReject
@@ -344,6 +364,11 @@ func (m model) handleKeyNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keys.Inspect):
 		return m, makeInspection(m.client, m.db, m.pubs[m.cursor])
+	case key.Matches(msg, keys.Label):
+		m.textInput.Focus()
+		m.textInput.Placeholder = PlaceholderLabel
+		m.labeling = true
+		return m, nil
 	}
 	return m, nil
 }
@@ -352,6 +377,7 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	reset := func(m *model) {
 		m.textInput.Reset()
 		m.textInput.Blur()
+		m.labeling = false
 		m.rejecting = false
 		m.printing = false
 		m.inspecting = false
@@ -380,6 +406,8 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			)
 		case m.printing:
 			cmd = saveReview(m.client, m.textInput.Value(), m.pubs)
+		case m.labeling:
+			cmd = makeKeywords(m.cursor, m.pubs[m.cursor], m.textInput.Value())
 		}
 
 		reset(&m)
@@ -392,7 +420,7 @@ func (m model) handleKeyInsert(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.rejecting || m.printing || m.inspecting {
+	if m.rejecting || m.printing || m.inspecting || m.labeling {
 		return m.handleKeyInsert(msg)
 	}
 	return m.handleKeyNormal(msg)
@@ -455,6 +483,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.rejectedCount++
 			}
 		}
+		return m, nil
+	case keywordsMsg:
+		data, err := msg.pub.Keywords.Marshal()
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
+		ref := m.client.ToBibTeX(msg.pub)
+		if err := m.db.Append(&edb.Event{
+			Id:     fmt.Sprintf("%d", time.Now().UnixNano()),
+			Issuer: "reviewer",
+			Scope:  "lit",
+			Action: "add_keywords",
+			Data:   []string{ref.CiteKey(), data, fmt.Sprintf("%d", msg.cursor)},
+		}); err != nil {
+			m.err = err
+			return m, nil
+		}
+		m.pubs[msg.cursor] = msg.pub
 		return m, nil
 	case inspectMsg:
 		m.inspecting = true
@@ -529,24 +576,35 @@ func (m model) linkView() string {
 }
 
 func (m model) statusView() string {
-	if m.rejecting {
-		return m.textInput.View()
-	}
-
 	rev := m.pubs[m.cursor].Review
+	keywords := m.pubs[m.cursor].Keywords
 
-	var statusView string
+	var rejectView string
 	switch {
 	case rev == nil:
-		statusView = m.style.todo.Render("to be reviewed")
+		rejectView = m.style.todo.Render("to be reviewed")
 	case rev.IsAccepted && rev.IsHighlighted:
-		statusView = m.style.accepted.Render("accepted (+highlight)")
+		rejectView = m.style.accepted.Render("accepted (+highlight)")
 	case rev.IsAccepted:
-		statusView = m.style.accepted.Render("accepted")
+		rejectView = m.style.accepted.Render("accepted")
 	default:
-		statusView = m.style.rejected.Render("rejected: " + rev.RejectReason)
+		rejectView = m.style.rejected.Render("rejected: " + rev.RejectReason)
 	}
-	return statusView
+
+	var keywordsView string
+	switch {
+	case keywords == nil:
+		keywordsView = "[]"
+	default:
+		keywordsView = fmt.Sprintf("[%s]", keywords.Text())
+	}
+
+	fields := []string{rejectView, keywordsView}
+	if m.rejecting || m.labeling {
+		fields = append([]string{m.textInput.View()}, fields...)
+	}
+
+	return strings.Join(fields, "\n")
 }
 
 func (m model) progressView() string {
@@ -575,7 +633,7 @@ func (m model) statsView() string {
 }
 
 func (m model) helpView() string {
-	if m.rejecting || m.inspecting {
+	if m.rejecting || m.inspecting || m.labeling {
 		return m.help.View(m.insert)
 	}
 
@@ -675,6 +733,16 @@ func Main() error {
 				rejectedCount++
 			}
 			pubs[index].Review = r
+		case "add_keywords":
+			index, err := strconv.Atoi(e.Data[2])
+			if err != nil {
+				return fmt.Errorf("add_keywords: index conversion: %w", err)
+			}
+			k := new(lit.Keywords)
+			if err := k.Unmarshal(e.Data[1]); err != nil {
+				return err
+			}
+			pubs[index].Keywords = k
 		case "move_cursor":
 			var err error
 			cursor, err = strconv.Atoi(e.Data[0])
@@ -689,7 +757,7 @@ func Main() error {
 	}
 
 	ti := textinput.NewModel()
-	ti.CharLimit = 256
+	ti.CharLimit = 256 * 4
 
 	return tea.NewProgram(model{
 		db:            db,

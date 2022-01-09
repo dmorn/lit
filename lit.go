@@ -92,6 +92,39 @@ func (r *Review) Unmarshal(data string) error {
 	return json.NewDecoder(strings.NewReader(d)).Decode(r)
 }
 
+type Keywords struct {
+	Values []string `json:"values"`
+}
+
+func (k Keywords) Text() string {
+	return strings.Join(k.Values, ", ")
+}
+
+func (k *Keywords) Parse(input string) {
+	values := strings.Split(input, ",")
+	trimmed := make([]string, len(values))
+	for i, v := range values {
+		trimmed[i] = strings.TrimSpace(v)
+	}
+	k.Values = trimmed
+}
+
+func (k Keywords) Marshal() (string, error) {
+	d, err := json.Marshal(k)
+	if err != nil {
+		return "", err
+	}
+	return marshal(string(d))
+}
+
+func (k *Keywords) Unmarshal(data string) error {
+	d, err := unmarshal(data)
+	if err != nil {
+		return err
+	}
+	return json.NewDecoder(strings.NewReader(d)).Decode(k)
+}
+
 type Publication struct {
 	Title     string    `json:"title"`
 	CoverDate time.Time `json:"cover_date"`
@@ -102,6 +135,7 @@ type Publication struct {
 
 	*Abstract `json:"abstract,omitempty"`
 	*Review   `json:"review,omitempty"`
+	*Keywords `json:"keywords,omitempty"`
 }
 
 func (p *Publication) GetAbstract(ctx context.Context, lib Library) error {
